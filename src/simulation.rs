@@ -24,7 +24,7 @@ use bevy::{
         schedule::IntoScheduleConfigs,
         system::{Commands, Query, Res, ResMut, Single},
     },
-    math::Vec2,
+    math::{Vec2, Vec3},
     picking::events::{Click, Pointer},
     sprite::Sprite,
     state::{
@@ -42,12 +42,16 @@ use bevy::{
 };
 use rand::RngExt;
 
-use crate::{LIST, Layer, SimState, despawn_screen, main_home::MainUi};
+use crate::{
+    CamerInfo, LIST, Layer, SimState, custom::CustomInfo, despawn_screen, main_home::MainUi,
+    move_camera::MoveInfo,
+};
 
 #[derive(Debug, Clone, Component)]
 pub struct Player;
 #[derive(Component)]
 struct SimUi;
+
 pub fn sim_plugin(app: &mut App) {
     app.add_systems(OnEnter(SimState::Sim), setup)
         .add_systems(
@@ -139,8 +143,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .observe(
                     |_: On<Pointer<Click>>,
                      mut state: ResMut<NextState<SimState>>,
+                     mut move_info: ResMut<MoveInfo>,
+                     camera_info: Res<CamerInfo>,
                      mut time: ResMut<Time<Physics>>| {
-                        state.set(SimState::MoveToMain);
+                        state.set(SimState::Move);
+                        *move_info = MoveInfo {
+                            time: 0.0,
+                            trans: (Vec3::new(0.0, 0.0, 0.0), Vec3::new(camera_info.x, 0.0, 0.0)),
+                            scale: (1.0, camera_info.scale),
+                            next: SimState::Main,
+                        };
                         time.set_relative_speed(0.0);
                     },
                 );
@@ -213,9 +225,13 @@ pub fn set_wall(mut commands: Commands, window: Single<&Window, With<PrimaryWind
     ));
 }
 
-pub fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
+pub fn spawn_player(
+    mut commands: Commands,
+    custom_info: Res<CustomInfo>,
+    asset_server: Res<AssetServer>,
+) {
     let mut rng = rand::rng();
-    let num = 100;
+    let num = 30;
     let player_basic = (
         RigidBody::Dynamic,
         Collider::rectangle(30.0, 30.0),
@@ -225,9 +241,14 @@ pub fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
     );
     let speed = 100.0;
 
+    let Some(handle) = custom_info.image_hash.get(&1) else {
+        println!("Nope!");
+        return;
+    };
+
     let player1 = (
         Sprite {
-            image: asset_server.load(LIST[0]),
+            image: handle.clone(),
             custom_size: Some(Vec2::new(32.0, 32.0)),
             ..Default::default()
         },
@@ -296,6 +317,7 @@ fn collision_event(
     asset_server: Res<AssetServer>,
     mut collison: MessageReader<CollisionStart>,
     mut q_sprite: Query<&mut Sprite>,
+    custom_info: Res<CustomInfo>,
     q_layer: Query<&CollisionLayers>,
 ) {
     for event in collison.read() {
@@ -313,7 +335,12 @@ fn collision_event(
             || (e1_layer == Layer::Type3 && e2_layer == Layer::Type2)
         {
             if let Ok(mut sprite) = q_sprite.get_mut(event.collider2) {
-                sprite.image = asset_server.load(LIST[e1_layer as usize]);
+                sprite.image =
+                    if let Some(handle) = custom_info.image_hash.get(&(e1_layer as i32 + 1)) {
+                        handle.clone()
+                    } else {
+                        asset_server.load(LIST[e1_layer as usize])
+                    };
             }
             if let Ok(mut c) = commands.get_entity(event.collider2) {
                 let masks = match e1_layer.clone() {
@@ -327,7 +354,12 @@ fn collision_event(
             }
         } else {
             if let Ok(mut sprite) = q_sprite.get_mut(event.collider1) {
-                sprite.image = asset_server.load(LIST[e2_layer as usize]);
+                sprite.image =
+                    if let Some(handle) = custom_info.image_hash.get(&(e2_layer as i32 + 1)) {
+                        handle.clone()
+                    } else {
+                        asset_server.load(LIST[e2_layer as usize])
+                    };
             }
 
             if let Ok(mut c) = commands.get_entity(event.collider1) {

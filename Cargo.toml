@@ -12,6 +12,8 @@ opt-level = 3
 [dependencies]
 avian2d = "0.6.0"
 bevy = {version = "0.18.1", features = ["dynamic_linking"]}
+image = "0.25.10"
+pollster = "0.4.0"
 rand = "0.10.0"
 rfd = "0.17.2"
 wasm-bindgen-futures = "0.4.64"

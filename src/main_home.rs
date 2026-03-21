@@ -1,15 +1,19 @@
+use std::thread::spawn;
+
 use avian2d::prelude::{Physics, PhysicsTime};
 use bevy::{
     app::{App, Startup},
+    asset::{Asset, Assets},
     camera::{Camera2d, OrthographicProjection, Projection},
     color::palettes::css::{BLACK, RED, WHEAT, WHITE},
     ecs::{
         component::Component,
         observer::On,
         query::With,
-        system::{Commands, ResMut, Single},
+        system::{Commands, Res, ResMut, Single},
     },
-    math::Vec2,
+    image::Image,
+    math::{Vec2, Vec3},
     picking::{
         Pickable,
         events::{Click, Pointer},
@@ -21,8 +25,13 @@ use bevy::{
     transform::components::Transform,
     window::{PrimaryWindow, Window},
 };
+use rfd::{AsyncFileDialog, FileDialog};
 
-use crate::{CamerInfo, SimState};
+use crate::{
+    CamerInfo, SimState,
+    custom::{CustomInfo, ImageChannel},
+    move_camera::MoveInfo,
+};
 
 pub fn main_home_plugin(app: &mut App) {
     app.add_systems(Startup, main_ui_setup);
@@ -85,8 +94,17 @@ pub fn main_ui_setup(
             MainUi,
         ))
         .observe(
-            |_: On<Pointer<Click>>, mut state: ResMut<NextState<SimState>>| {
-                state.set(SimState::MoveToSim);
+            |_: On<Pointer<Click>>,
+             mut state: ResMut<NextState<SimState>>,
+             mut move_info: ResMut<MoveInfo>,
+             camera_info: Res<CamerInfo>| {
+                state.set(SimState::Move);
+                *move_info = MoveInfo {
+                    time: 0.0,
+                    trans: (Vec3::new(camera_info.x, 0.0, 0.0), Vec3::new(0.0, 0.0, 0.0)),
+                    scale: (camera_info.scale, 1.0),
+                    next: SimState::Sim,
+                };
                 println!("Change!");
             },
         );
@@ -113,4 +131,42 @@ pub fn main_ui_setup(
                 state.set(SimState::ReSpawnPlayer);
             },
         );
+    commands
+        .spawn((
+            Sprite {
+                color: RED.into(),
+                custom_size: Some(Vec2::new(block_width, 150.0)),
+                ..Default::default()
+            },
+            Text2d("R".to_string()),
+            TextFont {
+                font_size: 100.0,
+                ..Default::default()
+            },
+            TextColor(BLACK.into()),
+            Transform::from_xyz(width / 2.0 * scale + 1.5 * block_width + 5.0, -200.0, 10.0),
+            Pickable::default(),
+            MainUi,
+        ))
+        .observe(|_: On<Pointer<Click>>, image_channel: Res<ImageChannel>| {
+            let tx = image_channel.0.clone();
+
+            #[cfg(not(target_arch = "wasm32"))]
+            spawn(move || {
+                pollster::block_on(async {
+                    use crate::custom::ReadImage;
+
+                    let Some(file) = AsyncFileDialog::new()
+                        .add_filter("Image", &["png", "jpg", "jpeg", "webp"])
+                        .pick_file()
+                        .await
+                    else {
+                        return;
+                    };
+
+                    let bytes = file.read().await;
+                    let _ = tx.send(ReadImage(1, bytes));
+                });
+            });
+        });
 }

@@ -18,10 +18,11 @@ use bevy::{
 };
 
 use crate::{
-    main_home::main_home_plugin, move_camera::move_plugin, respawn::respawn_plugin,
-    simulation::sim_plugin,
+    custom::custom_plugin, main_home::main_home_plugin, move_camera::move_plugin,
+    respawn::respawn_plugin, simulation::sim_plugin,
 };
 
+mod custom;
 mod main_home;
 mod move_camera;
 mod respawn;
@@ -42,7 +43,13 @@ fn main() {
         .insert_resource(Gravity::ZERO)
         .insert_resource(CamerInfo { x: 0.0, scale: 0.0 })
         .init_state::<SimState>()
-        .add_plugins((main_home_plugin, sim_plugin, move_plugin, respawn_plugin))
+        .add_plugins((
+            main_home_plugin,
+            sim_plugin,
+            move_plugin,
+            custom_plugin,
+            respawn_plugin,
+        ))
         .run();
 }
 
@@ -56,8 +63,7 @@ fn despawn_screen<T: Component>(to_despawn: Query<Entity, With<T>>, mut commands
 enum SimState {
     #[default]
     Main,
-    MoveToSim,
-    MoveToMain,
+    Move,
     ReSpawnPlayer,
     ReSpawnUi,
     Sim,
