@@ -1,7 +1,10 @@
 use bevy::{
     app::{App, Update},
     ecs::{
-        message::MessageReader, resource::Resource, schedule::IntoScheduleConfigs, system::ResMut,
+        message::MessageReader,
+        resource::Resource,
+        schedule::{IntoScheduleConfigs, SystemCondition},
+        system::{Res, ResMut},
     },
     state::{
         condition::in_state,
@@ -11,8 +14,11 @@ use bevy::{
 };
 
 use crate::{
-    SimState, despawn_screen,
+    SimState,
+    custom::{CustomUi, set_custom_ui},
+    despawn_screen,
     main_home::{MainUi, main_ui_setup},
+    move_camera::MoveInfo,
     simulation::{Player, set_wall, spawn_player},
 };
 
@@ -26,18 +32,24 @@ pub fn respawn_plugin(app: &mut App) {
             OnEnter(SimState::ReSpawnUi),
             (
                 despawn_screen::<MainUi>,
+                despawn_screen::<CustomUi>,
                 main_ui_setup,
+                set_custom_ui,
                 set_wall,
                 respawn_exit,
             )
                 .chain(),
         )
         .add_systems(Update, check_window)
-        .add_systems(Update, resize_change.run_if(in_state(SimState::Main)));
+        .add_systems(
+            Update,
+            resize_change.run_if(in_state(SimState::Main).or(in_state(SimState::Custom))),
+        );
 }
 
-fn respawn_exit(mut state: ResMut<NextState<SimState>>) {
-    state.set(SimState::Main);
+fn respawn_exit(mut state: ResMut<NextState<SimState>>, prev: Res<MoveInfo>) {
+    println!("Respawn End! {:?}", prev.next);
+    state.set(prev.next);
 }
 
 #[derive(Debug, Resource)]

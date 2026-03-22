@@ -43,8 +43,8 @@ use bevy::{
 use rand::RngExt;
 
 use crate::{
-    CamerInfo, LIST, Layer, SimState, custom::CustomInfo, despawn_screen, main_home::MainUi,
-    move_camera::MoveInfo,
+    CamerInfo, FONTPATH, LIST, Layer, SimState, custom::CustomInfo, despawn_screen,
+    main_home::MainUi, move_camera::MoveInfo,
 };
 
 #[derive(Debug, Clone, Component)]
@@ -93,7 +93,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
             let text_basic = (
                 TextFont {
-                    font: asset_server.load("font/NotoSansSymbols2-Regular.ttf"),
+                    font: asset_server.load(FONTPATH),
                     weight: FontWeight::BOLD,
                     font_size: 25.0,
                     ..Default::default()
@@ -120,7 +120,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             for child in children.iter() {
                                 if let Ok(mut text) = q_text.get_mut(child.entity()) {
                                     if time.relative_speed() == 0.0 {
-                                        text.0 = "⏸".to_string();
+                                        text.0 = "❙❙".to_string();
                                         time.set_relative_speed(1.0);
                                     } else {
                                         text.0 = "▶".to_string();
@@ -170,6 +170,7 @@ pub fn set_wall(mut commands: Commands, window: Single<&Window, With<PrimaryWind
             custom_size: Some(Vec2::new(min_size, min_size)),
             ..Default::default()
         },
+        Transform::from_xyz(0.0, 0.0, -10.0),
         MainUi,
     ));
 
@@ -231,7 +232,7 @@ pub fn spawn_player(
     asset_server: Res<AssetServer>,
 ) {
     let mut rng = rand::rng();
-    let num = 30;
+    let num = 50;
     let player_basic = (
         RigidBody::Dynamic,
         Collider::rectangle(30.0, 30.0),

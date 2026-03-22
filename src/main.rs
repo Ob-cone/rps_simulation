@@ -4,16 +4,20 @@ use avian2d::{
 };
 use bevy::{
     DefaultPlugins,
-    app::App,
+    app::{App, PreUpdate, Update},
     ecs::{
         component::Component,
         entity::Entity,
+        message::MessageReader,
         query::With,
         resource::Resource,
-        system::{Commands, Query},
+        system::{Commands, Query, ResMut},
     },
     prelude::PluginGroup,
-    state::{app::AppExtStates, state::States},
+    state::{
+        app::AppExtStates,
+        state::{StateTransitionEvent, States},
+    },
     window::{Window, WindowPlugin},
 };
 
@@ -28,6 +32,7 @@ mod move_camera;
 mod respawn;
 mod simulation;
 
+const FONTPATH: &str = "font/PixelCode-Bold.otf";
 const LIST: [&str; 3] = ["rock.png", "paper.png", "scissors.png"];
 
 fn main() {
@@ -67,6 +72,7 @@ enum SimState {
     ReSpawnPlayer,
     ReSpawnUi,
     Sim,
+    Custom,
 }
 
 #[derive(Debug, Resource)]

@@ -1,10 +1,8 @@
-use std::thread::spawn;
-
 use avian2d::prelude::{Physics, PhysicsTime};
 use bevy::{
     app::{App, Startup},
-    asset::{Asset, Assets},
-    camera::{Camera2d, OrthographicProjection, Projection},
+    asset::AssetServer,
+    camera::{Camera2d, OrthographicProjection, Projection, visibility::NoFrustumCulling},
     color::palettes::css::{BLACK, RED, WHEAT, WHITE},
     ecs::{
         component::Component,
@@ -12,26 +10,20 @@ use bevy::{
         query::With,
         system::{Commands, Res, ResMut, Single},
     },
-    image::Image,
     math::{Vec2, Vec3},
     picking::{
         Pickable,
         events::{Click, Pointer},
     },
     sprite::{Sprite, Text2d},
-    state::state::NextState,
+    state::state::{NextState, State},
     text::{TextColor, TextFont},
     time::Time,
     transform::components::Transform,
     window::{PrimaryWindow, Window},
 };
-use rfd::{AsyncFileDialog, FileDialog};
 
-use crate::{
-    CamerInfo, SimState,
-    custom::{CustomInfo, ImageChannel},
-    move_camera::MoveInfo,
-};
+use crate::{CamerInfo, FONTPATH, SimState, custom::ImageChannel, move_camera::MoveInfo};
 
 pub fn main_home_plugin(app: &mut App) {
     app.add_systems(Startup, main_ui_setup);
@@ -46,6 +38,8 @@ pub fn main_ui_setup(
     window: Single<&Window, With<PrimaryWindow>>,
     mut time: ResMut<Time<Physics>>,
     mut camer_info: ResMut<CamerInfo>,
+    asset_server: Res<AssetServer>,
+    state: Res<MoveInfo>,
 ) {
     let width = window.width();
     let height = window.height();
@@ -53,9 +47,17 @@ pub fn main_ui_setup(
     let scale = 2.0;
     camer_info.x = width / 6.0 * scale;
     camer_info.scale = scale;
+
+    //println!("Last: {:?}", state.0);
+    let num = if state.next == SimState::Custom {
+        -1.0
+    } else {
+        1.0
+    };
+
     commands.spawn((
         Camera2d,
-        Transform::from_xyz(width / 6.0 * scale, 0.0, 0.0),
+        Transform::from_xyz(width / 6.0 * scale * num, 0.0, 0.0),
         Projection::Orthographic(OrthographicProjection {
             scale: scale,
             ..OrthographicProjection::default_2d()
@@ -76,20 +78,27 @@ pub fn main_ui_setup(
         MainUi,
     ));
     let block_width = ui_width * 0.2;
+    let block_height = 150.0;
     commands
         .spawn((
             Sprite {
                 color: WHITE.into(),
-                custom_size: Some(Vec2::new(block_width * 3.0, 150.0)),
+                custom_size: Some(Vec2::new(block_width * 3.0, block_height)),
                 ..Default::default()
             },
             Text2d("Start".to_string()),
             TextFont {
+                font: asset_server.load(FONTPATH),
                 font_size: 100.0,
                 ..Default::default()
             },
             TextColor(BLACK.into()),
-            Transform::from_xyz(width / 2.0 * scale - 0.5 * block_width - 5.0, 0.0, 10.0),
+            Transform::from_xyz(
+                width / 2.0 * scale - 0.5 * block_width - 5.0,
+                block_height / 2.0 + 5.0,
+                10.0,
+            ),
+            NoFrustumCulling,
             Pickable::default(),
             MainUi,
         ))
@@ -113,16 +122,22 @@ pub fn main_ui_setup(
         .spawn((
             Sprite {
                 color: RED.into(),
-                custom_size: Some(Vec2::new(block_width, 150.0)),
+                custom_size: Some(Vec2::new(block_width, block_height)),
                 ..Default::default()
             },
             Text2d("R".to_string()),
             TextFont {
+                font: asset_server.load(FONTPATH),
                 font_size: 100.0,
                 ..Default::default()
             },
             TextColor(BLACK.into()),
-            Transform::from_xyz(width / 2.0 * scale + 1.5 * block_width + 5.0, 0.0, 10.0),
+            Transform::from_xyz(
+                width / 2.0 * scale + 1.5 * block_width + 5.0,
+                block_height / 2.0 + 5.0,
+                10.0,
+            ),
+            NoFrustumCulling,
             Pickable::default(),
             MainUi,
         ))
@@ -134,39 +149,57 @@ pub fn main_ui_setup(
     commands
         .spawn((
             Sprite {
-                color: RED.into(),
-                custom_size: Some(Vec2::new(block_width, 150.0)),
+                color: WHITE.into(),
+                custom_size: Some(Vec2::new(4.0 * block_width + 10.0, block_height)),
                 ..Default::default()
             },
-            Text2d("R".to_string()),
+            Text2d("Custom".to_string()),
             TextFont {
+                font: asset_server.load(FONTPATH),
                 font_size: 100.0,
                 ..Default::default()
             },
             TextColor(BLACK.into()),
-            Transform::from_xyz(width / 2.0 * scale + 1.5 * block_width + 5.0, -200.0, 10.0),
+            Transform::from_xyz(width / 2.0 * scale, -block_height / 2.0 - 5.0, 10.0),
+            NoFrustumCulling,
             Pickable::default(),
             MainUi,
         ))
-        .observe(|_: On<Pointer<Click>>, image_channel: Res<ImageChannel>| {
-            let tx = image_channel.0.clone();
+        .observe(
+            |_: On<Pointer<Click>>,
+             image_channel: Res<ImageChannel>,
+             mut state: ResMut<NextState<SimState>>,
+             mut move_info: ResMut<MoveInfo>,
+             camera_info: Res<CamerInfo>| {
+                state.set(SimState::Move);
+                *move_info = MoveInfo {
+                    time: 0.0,
+                    trans: (
+                        Vec3::new(camera_info.x, 0.0, 0.0),
+                        Vec3::new(-camera_info.x, 0.0, 0.0),
+                    ),
+                    scale: (camera_info.scale, camera_info.scale),
+                    next: SimState::Custom,
+                };
+                // let tx = image_channel.0.clone();
 
-            #[cfg(not(target_arch = "wasm32"))]
-            spawn(move || {
-                pollster::block_on(async {
-                    use crate::custom::ReadImage;
+                // #[cfg(not(target_arch = "wasm32"))]
+                // spawn(move || {
+                //     pollster::block_on(async {
+                //         use crate::custom::ReadImage;
 
-                    let Some(file) = AsyncFileDialog::new()
-                        .add_filter("Image", &["png", "jpg", "jpeg", "webp"])
-                        .pick_file()
-                        .await
-                    else {
-                        return;
-                    };
+                //         let Some(file) = AsyncFileDialog::new()
+                //             .add_filter("Image", &["png", "jpg", "jpeg", "webp"])
+                //             .pick_file()
+                //             .await
+                //         else {
+                //             return;
+                //         };
 
-                    let bytes = file.read().await;
-                    let _ = tx.send(ReadImage(1, bytes));
-                });
-            });
-        });
+                //         let bytes = file.read().await;
+                //         let _ = tx.send(ReadImage(1, bytes));
+                //     });
+                // });
+            },
+        );
 }
