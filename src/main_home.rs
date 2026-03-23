@@ -167,7 +167,6 @@ pub fn main_ui_setup(
         ))
         .observe(
             |_: On<Pointer<Click>>,
-             image_channel: Res<ImageChannel>,
              mut state: ResMut<NextState<SimState>>,
              mut move_info: ResMut<MoveInfo>,
              camera_info: Res<CamerInfo>| {
@@ -181,25 +180,6 @@ pub fn main_ui_setup(
                     scale: (camera_info.scale, camera_info.scale),
                     next: SimState::Custom,
                 };
-                // let tx = image_channel.0.clone();
-
-                // #[cfg(not(target_arch = "wasm32"))]
-                // spawn(move || {
-                //     pollster::block_on(async {
-                //         use crate::custom::ReadImage;
-
-                //         let Some(file) = AsyncFileDialog::new()
-                //             .add_filter("Image", &["png", "jpg", "jpeg", "webp"])
-                //             .pick_file()
-                //             .await
-                //         else {
-                //             return;
-                //         };
-
-                //         let bytes = file.read().await;
-                //         let _ = tx.send(ReadImage(1, bytes));
-                //     });
-                // });
             },
         );
 }

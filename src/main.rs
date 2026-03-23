@@ -20,6 +20,7 @@ use bevy::{
     },
     window::{Window, WindowPlugin},
 };
+use bevy_bc_ime_text_field::ImeTextFieldPlugin;
 
 use crate::{
     custom::custom_plugin, main_home::main_home_plugin, move_camera::move_plugin,
@@ -45,6 +46,7 @@ fn main() {
             ..Default::default()
         }))
         .add_plugins(PhysicsPlugins::default())
+        .add_plugins(ImeTextFieldPlugin)
         .insert_resource(Gravity::ZERO)
         .insert_resource(CamerInfo { x: 0.0, scale: 0.0 })
         .init_state::<SimState>()

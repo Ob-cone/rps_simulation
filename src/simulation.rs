@@ -241,76 +241,111 @@ pub fn spawn_player(
         Player,
     );
     let speed = 100.0;
+    let layer_list = vec![Layer::Type1, Layer::Type2, Layer::Type3];
+    for i in 1..(custom_info.nums.len() as i32 + 1) {
+        let Some(handle) = custom_info.image_hash.get(&i) else {
+            println!("Nope!");
+            continue;
+        };
+        let Some(num) = custom_info.nums.get(&i) else {
+            println!("Nope!");
+            continue;
+        };
+        let mut all = LayerMask::ALL;
+        all.remove(layer_list[(i - 1) as usize]);
+        let player = (
+            Sprite {
+                image: handle.clone(),
+                custom_size: Some(Vec2::new(32.0, 32.0)),
+                ..Default::default()
+            },
+            CollisionLayers::new(layer_list[(i - 1) as usize], all),
+        );
 
-    let Some(handle) = custom_info.image_hash.get(&1) else {
-        println!("Nope!");
-        return;
-    };
+        for _ in 0..num.abs() {
+            let x = rng.random_range(-300.0..300.0);
+            let y = rng.random_range(-300.0..300.0);
 
-    let player1 = (
-        Sprite {
-            image: handle.clone(),
-            custom_size: Some(Vec2::new(32.0, 32.0)),
-            ..Default::default()
-        },
-        CollisionLayers::new(Layer::Type1, [Layer::Type2, Layer::Type3, Layer::Wall]),
-    );
-    for _ in 0..num {
-        let x = rng.random_range(-300.0..300.0);
-        let y = rng.random_range(-300.0..300.0);
+            let angle = rng.random_range(0.0..TAU);
 
-        let angle = rng.random_range(0.0..TAU);
-
-        commands.spawn((
-            LinearVelocity(Vec2::new(angle.cos() * speed, angle.sin() * speed)),
-            Transform::from_xyz(x, y, 0.0),
-            player_basic.clone(),
-            player1.clone(),
-        ));
-    }
-    let player2 = (
-        Sprite {
-            image: asset_server.load(LIST[1]),
-            custom_size: Some(Vec2::new(32.0, 32.0)),
-            ..Default::default()
-        },
-        CollisionLayers::new(Layer::Type2, [Layer::Type1, Layer::Type3, Layer::Wall]),
-    );
-    for _ in 0..num {
-        let x = rng.random_range(-300.0..300.0);
-        let y = rng.random_range(-300.0..300.0);
-
-        let angle = rng.random_range(0.0..TAU);
-
-        commands.spawn((
-            LinearVelocity(Vec2::new(angle.cos() * speed, angle.sin() * speed)),
-            Transform::from_xyz(x, y, 0.0),
-            player_basic.clone(),
-            player2.clone(),
-        ));
+            commands.spawn((
+                LinearVelocity(Vec2::new(angle.cos() * speed, angle.sin() * speed)),
+                Transform::from_xyz(x, y, 0.0),
+                player_basic.clone(),
+                player.clone(),
+            ));
+        }
     }
 
-    let player3 = (
-        Sprite {
-            image: asset_server.load(LIST[2]),
-            custom_size: Some(Vec2::new(32.0, 32.0)),
-            ..Default::default()
-        },
-        CollisionLayers::new(Layer::Type3, [Layer::Type1, Layer::Type2, Layer::Wall]),
-    );
-    for _ in 0..num {
-        let x = rng.random_range(-300.0..300.0);
-        let y = rng.random_range(-300.0..300.0);
+    // let Some(handle) = custom_info.image_hash.get(&1) else {
+    //     println!("Nope!");
+    //     return;
+    // };
 
-        let angle = rng.random_range(0.0..TAU);
+    // let player1 = (
+    //     Sprite {
+    //         image: handle.clone(),
+    //         custom_size: Some(Vec2::new(32.0, 32.0)),
+    //         ..Default::default()
+    //     },
+    //     CollisionLayers::new(Layer::Type1, [Layer::Type2, Layer::Type3, Layer::Wall]),
+    // );
+    // for _ in 0..num {
+    //     let x = rng.random_range(-300.0..300.0);
+    //     let y = rng.random_range(-300.0..300.0);
 
-        commands.spawn((
-            LinearVelocity(Vec2::new(angle.cos() * speed, angle.sin() * speed)),
-            Transform::from_xyz(x, y, 0.0),
-            player_basic.clone(),
-            player3.clone(),
-        ));
-    }
+    //     let angle = rng.random_range(0.0..TAU);
+
+    //     commands.spawn((
+    //         LinearVelocity(Vec2::new(angle.cos() * speed, angle.sin() * speed)),
+    //         Transform::from_xyz(x, y, 0.0),
+    //         player_basic.clone(),
+    //         player1.clone(),
+    //     ));
+    // }
+    // let player2 = (
+    //     Sprite {
+    //         image: asset_server.load(LIST[1]),
+    //         custom_size: Some(Vec2::new(32.0, 32.0)),
+    //         ..Default::default()
+    //     },
+    //     CollisionLayers::new(Layer::Type2, [Layer::Type1, Layer::Type3, Layer::Wall]),
+    // );
+    // for _ in 0..num {
+    //     let x = rng.random_range(-300.0..300.0);
+    //     let y = rng.random_range(-300.0..300.0);
+
+    //     let angle = rng.random_range(0.0..TAU);
+
+    //     commands.spawn((
+    //         LinearVelocity(Vec2::new(angle.cos() * speed, angle.sin() * speed)),
+    //         Transform::from_xyz(x, y, 0.0),
+    //         player_basic.clone(),
+    //         player2.clone(),
+    //     ));
+    // }
+
+    // let player3 = (
+    //     Sprite {
+    //         image: asset_server.load(LIST[2]),
+    //         custom_size: Some(Vec2::new(32.0, 32.0)),
+    //         ..Default::default()
+    //     },
+    //     CollisionLayers::new(Layer::Type3, [Layer::Type1, Layer::Type2, Layer::Wall]),
+    // );
+    // for _ in 0..num {
+    //     let x = rng.random_range(-300.0..300.0);
+    //     let y = rng.random_range(-300.0..300.0);
+
+    //     let angle = rng.random_range(0.0..TAU);
+
+    //     commands.spawn((
+    //         LinearVelocity(Vec2::new(angle.cos() * speed, angle.sin() * speed)),
+    //         Transform::from_xyz(x, y, 0.0),
+    //         player_basic.clone(),
+    //         player3.clone(),
+    //     ));
+    // }
 }
 
 fn collision_event(

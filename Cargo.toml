@@ -11,7 +11,7 @@ opt-level = 3
 
 [dependencies]
 avian2d = "0.6.0"
-bevy = {version = "0.18.1", features = ["dynamic_linking"]}
+bevy = {version = "0.18.1", features = ["dynamic_linking","debug"]}
 bevy_bc_ime_text_field = "0.1.1"
 image = "0.25.10"
 pollster = "0.4.0"
