@@ -589,7 +589,7 @@ pub fn spawn_type_children(
                             color: Color::NONE,
                             ..Default::default()
                         },
-                        Transform::from_xyz(width - 20.0, 0.0, 10.0),
+                        Transform::from_xyz(width - 20.0, 0.0, 0.5),
                         Anchor::TOP_RIGHT,
                         Pickable::default(),
                         RemoveIcon,
