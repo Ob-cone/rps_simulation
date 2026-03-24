@@ -1,36 +1,30 @@
-use avian2d::{
-    PhysicsPlugins,
-    prelude::{Gravity, PhysicsLayer},
-};
+use avian2d::{PhysicsPlugins, prelude::Gravity};
 use bevy::{
     DefaultPlugins,
-    app::{App, PreUpdate, Update},
+    app::App,
     ecs::{
         component::Component,
         entity::Entity,
-        message::MessageReader,
         query::With,
         resource::Resource,
-        system::{Commands, Query, ResMut},
+        system::{Commands, Query},
     },
     prelude::PluginGroup,
-    state::{
-        app::AppExtStates,
-        state::{StateTransitionEvent, States},
-    },
+    state::{app::AppExtStates, state::States},
     window::{Window, WindowPlugin},
 };
 use bevy_bc_ime_text_field::ImeTextFieldPlugin;
 
 use crate::{
     custom::custom_plugin, main_home::main_home_plugin, move_camera::move_plugin,
-    respawn::respawn_plugin, simulation::sim_plugin,
+    respawn::respawn_plugin, scroller::scroller_plugin, simulation::sim_plugin,
 };
 
 mod custom;
 mod main_home;
 mod move_camera;
 mod respawn;
+mod scroller;
 mod simulation;
 
 const FONTPATH: &str = "font/PixelCode-Bold.otf";
@@ -56,6 +50,7 @@ fn main() {
             move_plugin,
             custom_plugin,
             respawn_plugin,
+            scroller_plugin,
         ))
         .run();
 }
@@ -73,6 +68,7 @@ enum SimState {
     Move,
     ReSpawnPlayer,
     ReSpawnUi,
+    ReSpawnChildren,
     Sim,
     Custom,
 }
@@ -81,13 +77,4 @@ enum SimState {
 struct CamerInfo {
     x: f32,
     scale: f32,
-}
-
-#[derive(Default, Debug, PartialEq, Clone, Copy, PhysicsLayer)]
-enum Layer {
-    #[default]
-    Wall = 4,
-    Type1 = 0, //rock
-    Type2 = 1, //paper
-    Type3 = 2, //scissor
 }

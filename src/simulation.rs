@@ -43,8 +43,8 @@ use bevy::{
 use rand::RngExt;
 
 use crate::{
-    CamerInfo, FONTPATH, LIST, Layer, SimState, custom::CustomInfo, despawn_screen,
-    main_home::MainUi, move_camera::MoveInfo,
+    CamerInfo, FONTPATH, LIST, SimState, custom::CustomInfo, despawn_screen, main_home::MainUi,
+    move_camera::MoveInfo,
 };
 
 #[derive(Debug, Clone, Component)]
@@ -175,10 +175,12 @@ pub fn set_wall(mut commands: Commands, window: Single<&Window, With<PrimaryWind
     ));
 
     let wall_color = Color::NONE;
+    let mut mask = LayerMask::ALL;
+    mask.remove(LayerMask(1));
     let wall_basic = (
         RigidBody::Static,
         Restitution::new(1.0),
-        CollisionLayers::new(Layer::Wall, [Layer::Type1, Layer::Type2, Layer::Type3]),
+        CollisionLayers::new(LayerMask(1), mask),
     );
     commands.spawn((
         Sprite {
@@ -226,13 +228,9 @@ pub fn set_wall(mut commands: Commands, window: Single<&Window, With<PrimaryWind
     ));
 }
 
-pub fn spawn_player(
-    mut commands: Commands,
-    custom_info: Res<CustomInfo>,
-    asset_server: Res<AssetServer>,
-) {
+pub fn spawn_player(mut commands: Commands, custom_info: Res<CustomInfo>) {
     let mut rng = rand::rng();
-    let num = 50;
+
     let player_basic = (
         RigidBody::Dynamic,
         Collider::rectangle(30.0, 30.0),
@@ -241,8 +239,9 @@ pub fn spawn_player(
         Player,
     );
     let speed = 100.0;
-    let layer_list = vec![Layer::Type1, Layer::Type2, Layer::Type3];
-    for i in 1..(custom_info.nums.len() as i32 + 1) {
+
+    let type_num = custom_info.len;
+    for i in 1..=type_num {
         let Some(handle) = custom_info.image_hash.get(&i) else {
             println!("Nope!");
             continue;
@@ -252,14 +251,15 @@ pub fn spawn_player(
             continue;
         };
         let mut all = LayerMask::ALL;
-        all.remove(layer_list[(i - 1) as usize]);
+        let my_layer = LayerMask(1 << i);
+        all.remove(my_layer);
         let player = (
             Sprite {
                 image: handle.clone(),
                 custom_size: Some(Vec2::new(32.0, 32.0)),
                 ..Default::default()
             },
-            CollisionLayers::new(layer_list[(i - 1) as usize], all),
+            CollisionLayers::new(my_layer, all),
         );
 
         for _ in 0..num.abs() {
@@ -276,76 +276,6 @@ pub fn spawn_player(
             ));
         }
     }
-
-    // let Some(handle) = custom_info.image_hash.get(&1) else {
-    //     println!("Nope!");
-    //     return;
-    // };
-
-    // let player1 = (
-    //     Sprite {
-    //         image: handle.clone(),
-    //         custom_size: Some(Vec2::new(32.0, 32.0)),
-    //         ..Default::default()
-    //     },
-    //     CollisionLayers::new(Layer::Type1, [Layer::Type2, Layer::Type3, Layer::Wall]),
-    // );
-    // for _ in 0..num {
-    //     let x = rng.random_range(-300.0..300.0);
-    //     let y = rng.random_range(-300.0..300.0);
-
-    //     let angle = rng.random_range(0.0..TAU);
-
-    //     commands.spawn((
-    //         LinearVelocity(Vec2::new(angle.cos() * speed, angle.sin() * speed)),
-    //         Transform::from_xyz(x, y, 0.0),
-    //         player_basic.clone(),
-    //         player1.clone(),
-    //     ));
-    // }
-    // let player2 = (
-    //     Sprite {
-    //         image: asset_server.load(LIST[1]),
-    //         custom_size: Some(Vec2::new(32.0, 32.0)),
-    //         ..Default::default()
-    //     },
-    //     CollisionLayers::new(Layer::Type2, [Layer::Type1, Layer::Type3, Layer::Wall]),
-    // );
-    // for _ in 0..num {
-    //     let x = rng.random_range(-300.0..300.0);
-    //     let y = rng.random_range(-300.0..300.0);
-
-    //     let angle = rng.random_range(0.0..TAU);
-
-    //     commands.spawn((
-    //         LinearVelocity(Vec2::new(angle.cos() * speed, angle.sin() * speed)),
-    //         Transform::from_xyz(x, y, 0.0),
-    //         player_basic.clone(),
-    //         player2.clone(),
-    //     ));
-    // }
-
-    // let player3 = (
-    //     Sprite {
-    //         image: asset_server.load(LIST[2]),
-    //         custom_size: Some(Vec2::new(32.0, 32.0)),
-    //         ..Default::default()
-    //     },
-    //     CollisionLayers::new(Layer::Type3, [Layer::Type1, Layer::Type2, Layer::Wall]),
-    // );
-    // for _ in 0..num {
-    //     let x = rng.random_range(-300.0..300.0);
-    //     let y = rng.random_range(-300.0..300.0);
-
-    //     let angle = rng.random_range(0.0..TAU);
-
-    //     commands.spawn((
-    //         LinearVelocity(Vec2::new(angle.cos() * speed, angle.sin() * speed)),
-    //         Transform::from_xyz(x, y, 0.0),
-    //         player_basic.clone(),
-    //         player3.clone(),
-    //     ));
-    // }
 }
 
 fn collision_event(
@@ -357,71 +287,54 @@ fn collision_event(
     q_layer: Query<&CollisionLayers>,
 ) {
     for event in collison.read() {
-        let e1_layer_mask = q_layer.get(event.collider1).unwrap().memberships;
-        let e2_layer_mask = q_layer.get(event.collider2).unwrap().memberships;
+        let e1_mask = q_layer.get(event.collider1).unwrap().memberships;
+        let e2_mask = q_layer.get(event.collider2).unwrap().memberships;
 
-        let e1_layer = get_layer(e1_layer_mask);
-        let e2_layer = get_layer(e2_layer_mask);
-        //println!("{:?} {:?}", e1_layer, e2_layer);
+        let len = custom_info.len;
 
-        if e1_layer == Layer::Wall || e2_layer == Layer::Wall {
+        let e1_layer = get_layer(e1_mask, len);
+        let e2_layer = get_layer(e2_mask, len);
+        println!("len: {:?}, {:?} {:?}", len, e1_layer, e2_layer);
+
+        if e1_layer == 0 || e2_layer == 0 || e1_layer == e2_layer {
             continue;
-        } else if (e1_layer == Layer::Type1 && e2_layer == Layer::Type3)
-            || (e1_layer == Layer::Type2 && e2_layer == Layer::Type1)
-            || (e1_layer == Layer::Type3 && e2_layer == Layer::Type2)
-        {
+        } else if ((e1_layer + 1) == e2_layer) || (e1_layer == len && e2_layer == 1) {
+            if let Ok(mut sprite) = q_sprite.get_mut(event.collider1) {
+                sprite.image = if let Some(handle) = custom_info.image_hash.get(&e2_layer) {
+                    handle.clone()
+                } else {
+                    asset_server.load(LIST[e2_layer as usize % 3])
+                };
+            }
+            if let Ok(mut c) = commands.get_entity(event.collider1) {
+                let mut mask = LayerMask::ALL;
+                mask.remove(e2_mask);
+                c.insert(CollisionLayers::new(e2_mask, mask));
+            }
+        } else if ((e2_layer + 1) == e1_layer) || (e2_layer == len && e1_layer == 1) {
             if let Ok(mut sprite) = q_sprite.get_mut(event.collider2) {
-                sprite.image =
-                    if let Some(handle) = custom_info.image_hash.get(&(e1_layer as i32 + 1)) {
-                        handle.clone()
-                    } else {
-                        asset_server.load(LIST[e1_layer as usize])
-                    };
+                sprite.image = if let Some(handle) = custom_info.image_hash.get(&e1_layer) {
+                    handle.clone()
+                } else {
+                    asset_server.load(LIST[e1_layer as usize % 3])
+                };
             }
             if let Ok(mut c) = commands.get_entity(event.collider2) {
-                let masks = match e1_layer.clone() {
-                    Layer::Type1 => [Layer::Type2, Layer::Type3, Layer::Wall],
-                    Layer::Type2 => [Layer::Type1, Layer::Type3, Layer::Wall],
-                    Layer::Type3 => [Layer::Type1, Layer::Type2, Layer::Wall],
-                    Layer::Wall => [Layer::Type1, Layer::Type2, Layer::Type3],
-                };
-
-                c.insert(CollisionLayers::new(e1_layer, masks));
-            }
-        } else {
-            if let Ok(mut sprite) = q_sprite.get_mut(event.collider1) {
-                sprite.image =
-                    if let Some(handle) = custom_info.image_hash.get(&(e2_layer as i32 + 1)) {
-                        handle.clone()
-                    } else {
-                        asset_server.load(LIST[e2_layer as usize])
-                    };
-            }
-
-            if let Ok(mut c) = commands.get_entity(event.collider1) {
-                let masks = match e2_layer.clone() {
-                    Layer::Type1 => [Layer::Type2, Layer::Type3, Layer::Wall],
-                    Layer::Type2 => [Layer::Type1, Layer::Type3, Layer::Wall],
-                    Layer::Type3 => [Layer::Type1, Layer::Type2, Layer::Wall],
-                    Layer::Wall => [Layer::Type1, Layer::Type2, Layer::Type3],
-                };
-
-                c.insert(CollisionLayers::new(e2_layer, masks));
+                let mut mask = LayerMask::ALL;
+                mask.remove(e1_mask);
+                c.insert(CollisionLayers::new(e1_mask, mask));
             }
         }
     }
 }
 
-fn get_layer(layer_mask: LayerMask) -> Layer {
-    if (layer_mask & Layer::Type1) != 0 {
-        Layer::Type1
-    } else if (layer_mask & Layer::Type2) != 0 {
-        Layer::Type2
-    } else if (layer_mask & Layer::Type3) != 0 {
-        Layer::Type3
-    } else {
-        Layer::Wall
+fn get_layer(layer_mask: LayerMask, len: i32) -> i32 {
+    for i in 1..=len {
+        if layer_mask & (1 << i) != 0 {
+            return i;
+        }
     }
+    0
 }
 
 fn enforce_speed(mut query: Query<&mut LinearVelocity>) {

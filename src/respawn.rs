@@ -1,10 +1,13 @@
 use bevy::{
     app::{App, Update},
     ecs::{
+        component::Component,
+        entity::{ContainsEntity, Entity},
         message::MessageReader,
+        query::With,
         resource::Resource,
         schedule::{IntoScheduleConfigs, SystemCondition},
-        system::{Res, ResMut},
+        system::{Commands, Res, ResMut, Single},
     },
     state::{
         condition::in_state,
@@ -15,7 +18,7 @@ use bevy::{
 
 use crate::{
     SimState,
-    custom::{CustomUi, set_custom_ui},
+    custom::{CustomUi, TypeParent, set_custom_ui, spawn_type_children, spawn_type_ui},
     despawn_screen,
     main_home::{MainUi, main_ui_setup},
     move_camera::MoveInfo,
@@ -29,6 +32,15 @@ pub fn respawn_plugin(app: &mut App) {
             (despawn_screen::<Player>, spawn_player, respawn_exit).chain(),
         )
         .add_systems(
+            OnEnter(SimState::ReSpawnChildren),
+            (
+                despawn_children::<TypeParent>,
+                spawn_type_children,
+                respawn_exit,
+            )
+                .chain(),
+        )
+        .add_systems(
             OnEnter(SimState::ReSpawnUi),
             (
                 despawn_screen::<MainUi>,
@@ -36,6 +48,8 @@ pub fn respawn_plugin(app: &mut App) {
                 main_ui_setup,
                 set_custom_ui,
                 set_wall,
+                spawn_type_ui,
+                spawn_type_children,
                 respawn_exit,
             )
                 .chain(),
@@ -67,5 +81,11 @@ fn resize_change(mut is_resize: ResMut<IsResize>, mut state: ResMut<NextState<Si
     if is_resize.0 {
         state.set(SimState::ReSpawnUi);
         is_resize.0 = false;
+    }
+}
+
+fn despawn_children<T: Component>(mut commands: Commands, q_parent: Single<Entity, With<T>>) {
+    if let Ok(mut p) = commands.get_entity(q_parent.entity()) {
+        p.despawn_children();
     }
 }
