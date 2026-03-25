@@ -502,6 +502,23 @@ pub fn spawn_type_children(
                                     let _ = tx.send(ReadImage(num, bytes));
                                 });
                             });
+
+                            #[cfg(target_arch = "wasm32")]
+                            wasm_bindgen_futures::spawn_local(async move {
+                                use crate::custom::ReadImage;
+                                use rfd::AsyncFileDialog;
+
+                                let Some(file) = AsyncFileDialog::new()
+                                    .add_filter("Image", &["png", "jpg", "jpeg", "webp"])
+                                    .pick_file()
+                                    .await
+                                else {
+                                    return;
+                                };
+
+                                let bytes = file.read().await;
+                                let _ = tx.send(ReadImage(num, bytes));
+                            });
                         },
                     );
 
@@ -573,9 +590,11 @@ pub fn spawn_type_children(
                                 {
                                     text.text.clear();
                                     info.focus = false;
-                                    if let Ok(n) = trigger.text_field.text.trim().parse::<i32>() {
-                                        custom_info.nums.insert(num.0, n.abs());
-                                        info.placeholder = Some((n.abs()).to_string());
+                                    if let Ok(parsed) =
+                                        trigger.text_field.text.trim().parse::<i32>()
+                                    {
+                                        custom_info.nums.insert(num.0, i32::abs(parsed));
+                                        info.placeholder = Some(parsed.abs().to_string());
                                     }
                                 }
                             },
