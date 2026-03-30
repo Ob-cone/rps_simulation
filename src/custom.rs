@@ -11,10 +11,13 @@ use std::{
 use bevy::{
     app::{App, PreStartup, Startup, Update},
     asset::{AssetServer, Assets, Handle, RenderAssetUsages},
-    camera::visibility::{NoFrustumCulling, Visibility},
+    camera::{
+        ClearColor,
+        visibility::{NoFrustumCulling, Visibility},
+    },
     color::{
-        Color,
-        palettes::css::{BLACK, BLUE, GRAY, RED, WHEAT, WHITE},
+        Color, Srgba,
+        palettes::css::{BLACK, GRAY, RED, WHEAT, WHITE},
     },
     ecs::{
         component::Component,
@@ -23,6 +26,7 @@ use bevy::{
         observer::On,
         query::With,
         resource::Resource,
+        schedule::{IntoScheduleConfigs, common_conditions::resource_changed},
         system::{Commands, Query, Res, ResMut, Single},
     },
     image::Image,
@@ -50,6 +54,7 @@ use crate::{
     move_camera::MoveInfo,
     respawn::IsResize,
     scroller::{ScrollMove, Scroller},
+    simulation::{MapSprite, SimInfo},
 };
 
 #[derive(Debug, Resource)]
@@ -79,12 +84,16 @@ pub struct ImageChannel(pub Sender<ReadImage>, pub Mutex<Receiver<ReadImage>>);
 pub struct CustomSelect(pub bool);
 #[derive(Component)]
 pub struct TypeParent;
+#[derive(Component)]
+pub struct EnvParent;
 #[derive(Debug, Component, Clone, Copy)]
 pub struct CustomUi;
 #[derive(Debug, Component)]
 pub struct CustomIcon(i32);
 #[derive(Debug, Component)]
 pub struct CustomNum(i32);
+#[derive(Debug, Component)]
+pub struct RankButton;
 
 #[derive(Debug, Message)]
 pub struct RemoveType(i32);
@@ -101,7 +110,16 @@ pub fn custom_plugin(app: &mut App) {
         .add_systems(PreStartup, custom_info_reset)
         .add_systems(Startup, set_custom_ui)
         .add_systems(Update, (add_image, remove_type))
-        .add_systems(Startup, (spawn_type_ui, spawn_type_children));
+        .add_systems(
+            Startup,
+            (
+                spawn_type_ui,
+                spawn_env_ui,
+                spawn_type_children,
+                spawn_env_children,
+            ),
+        )
+        .add_systems(Update, change_map_color.run_if(resource_changed::<SimInfo>));
 }
 
 fn custom_info_reset(mut custom_info: ResMut<CustomInfo>, asset_server: Res<AssetServer>) {
@@ -751,6 +769,556 @@ pub fn spawn_type_children(
     }
 }
 
+pub fn spawn_env_ui(
+    mut commands: Commands,
+    window: Single<&Window, With<PrimaryWindow>>,
+    select: Res<CustomSelect>,
+    camera_info: Res<CamerInfo>,
+    custom_info: Res<CustomInfo>,
+) {
+    if select.0 == false {
+        return;
+    }
+    let width = window.width();
+    let height = window.height();
+
+    let scale = camera_info.scale;
+    let ui_width = width / 3.0 * scale;
+
+    let block_width = ui_width * 0.2;
+    let block_height = 150.0;
+    let y = 0.4 * height * scale;
+
+    commands
+        .spawn((
+            Sprite {
+                color: WHEAT.into(),
+                custom_size: Some(Vec2::new(
+                    4.0 * block_width + 30.0 - 40.0,
+                    2.0 * y - 10.0 - 40.0,
+                )),
+                ..Default::default()
+            },
+            Anchor::TOP_CENTER,
+            Transform::from_xyz(-width / 2.0 * scale, y - block_height / 2.0 - 30.0, 0.5),
+            CustomUi,
+            NoFrustumCulling,
+            Pickable::default(),
+        ))
+        .observe(
+            |trigger: On<Pointer<Scroll>>, mut scroll: ResMut<ScrollMove>| {
+                //println!("SC: {:?}",trigger.y);
+                scroll.0 = 1;
+                scroll.1 += trigger.y;
+            },
+        )
+        .with_children(|p| {
+            let width = 4.0 * block_width + 30.0 - 40.0;
+            let item_nums = custom_info.len;
+            p.spawn((
+                Transform::from_xyz(-width / 2.0 + 10.0, -10.0, 0.0),
+                Visibility::default(),
+                Anchor::TOP_LEFT,
+                Scroller {
+                    id: 2,
+                    height: 160.0 * (item_nums as f32 + 1.0),
+                    start: -10.0,
+                    size: 2.0 * y - 10.0 - 40.0 - 20.0,
+                },
+                EnvParent,
+            ));
+        });
+}
+
+pub fn spawn_env_children(
+    mut commands: Commands,
+    q_parent: Single<Entity, With<EnvParent>>,
+    window: Single<&Window, With<PrimaryWindow>>,
+    asset_server: Res<AssetServer>,
+    sim_info: Res<SimInfo>,
+    camera_info: Res<CamerInfo>,
+    clear_color: Res<ClearColor>,
+) {
+    let entity = q_parent.entity();
+    if let Ok(mut p) = commands.get_entity(entity) {
+        let width = window.width();
+        let scale = camera_info.scale;
+        let ui_width = width / 3.0 * scale;
+
+        let block_width = ui_width * 0.2;
+        let width = 4.0 * block_width + 30.0 - 40.0;
+        p.with_children(|p| {
+            p.spawn((
+                Sprite {
+                    color: Color::srgba(0.0, 0.0, 0.0, 0.5),
+                    custom_size: Some(Vec2::new(width - 20.0, 180.0)),
+                    ..Default::default()
+                },
+                Anchor::TOP_LEFT,
+                Transform::from_xyz(0.0, 0.0, 0.1),
+            ))
+            .with_children(|p| {
+                p.spawn((
+                    Text2d::new("Seed"),
+                    TextFont {
+                        font: asset_server.load(FONTPATH),
+                        font_size: 75.0,
+                        ..Default::default()
+                    },
+                    Anchor::TOP_LEFT,
+                    Transform::from_xyz(10.0, 0.0, 0.1),
+                ));
+                p.spawn((
+                    Sprite {
+                        custom_size: Some(Vec2::new(width - 40.0, 70.0)),
+                        color: WHITE.into(),
+                        ..Default::default()
+                    },
+                    Transform::from_xyz(10.0, -100.0, 0.1),
+                    Anchor::TOP_LEFT,
+                    Pickable::default(),
+                    Visibility::default(),
+                ))
+                .with_children(|p| {
+                    let par = if let Some(seed) = sim_info.seed {
+                        seed.to_string()
+                    } else {
+                        "None".to_string()
+                    };
+
+                    p.spawn((
+                        TextField::default(),
+                        TextFieldStyle {
+                            font: TextFont {
+                                font: asset_server.load(FONTPATH),
+                                font_size: 50.0,
+                                ..Default::default()
+                            },
+                            color: BLACK.into(),
+                            placeholder_color: GRAY.into(),
+                            ..Default::default()
+                        },
+                        TextFieldInfo {
+                            focus: false,
+                            max_length: Some(10),
+                            placeholder: Some(par),
+                            ..Default::default()
+                        },
+                        Text2d::default(),
+                        Transform::from_xyz(10.0, -1.0, 0.5),
+                        Visibility::default(),
+                        Anchor::TOP_LEFT,
+                    ))
+                    .observe(
+                        |trigger: On<EnterEvent>,
+                         mut q_field: Query<(&mut TextField, &mut TextFieldInfo)>,
+                         mut sim_info: ResMut<SimInfo>| {
+                            println!("Enter: {:?}", trigger.text_field.text);
+                            if let Ok((mut text, mut info)) = q_field.get_mut(trigger.entity) {
+                                text.text.clear();
+                                info.focus = false;
+                                if let Ok(parsed) = trigger.text_field.text.trim().parse::<u64>() {
+                                    sim_info.seed = Some(parsed);
+                                    info.placeholder = Some(parsed.to_string());
+                                } else {
+                                    sim_info.seed = None;
+                                    info.placeholder = Some("None".to_string());
+                                }
+                            }
+                        },
+                    );
+                });
+            });
+
+            p.spawn((
+                Sprite {
+                    color: Color::srgba(0.0, 0.0, 0.0, 0.5),
+                    custom_size: Some(Vec2::new(width - 20.0, 220.0)),
+                    ..Default::default()
+                },
+                Anchor::TOP_LEFT,
+                Transform::from_xyz(0.0, -190.0, 0.1),
+            ))
+            .with_children(|p| {
+                p.spawn((
+                    Text2d::new("Size"),
+                    TextFont {
+                        font: asset_server.load(FONTPATH),
+                        font_size: 75.0,
+                        ..Default::default()
+                    },
+                    Anchor::TOP_LEFT,
+                    Transform::from_xyz(10.0, 0.0, 0.1),
+                ));
+                p.spawn((
+                    Text2d::new("Icon"),
+                    TextFont {
+                        font: asset_server.load(FONTPATH),
+                        font_size: 50.0,
+                        ..Default::default()
+                    },
+                    Anchor::TOP_LEFT,
+                    TextColor(BLACK.into()),
+                    Transform::from_xyz(10.0, -85.0, 0.1),
+                ));
+
+                p.spawn((
+                    Sprite {
+                        custom_size: Some(Vec2::new((width - 40.0) * 0.314, 60.0)),
+                        color: WHITE.into(),
+                        ..Default::default()
+                    },
+                    Transform::from_xyz(width - 30.0, -80.0, 0.1),
+                    Anchor::TOP_RIGHT,
+                    Pickable::default(),
+                    Visibility::default(),
+                ))
+                .with_children(|p| {
+                    let par = sim_info.icon_size.to_string();
+
+                    p.spawn((
+                        TextField::default(),
+                        TextFieldStyle {
+                            font: TextFont {
+                                font: asset_server.load(FONTPATH),
+                                font_size: 50.0,
+                                ..Default::default()
+                            },
+                            color: BLACK.into(),
+                            placeholder_color: GRAY.into(),
+                            ..Default::default()
+                        },
+                        TextFieldInfo {
+                            focus: false,
+                            max_length: Some(4),
+                            placeholder: Some(par),
+                            ..Default::default()
+                        },
+                        Text2d::default(),
+                        Transform::from_xyz(-10.0, -1.0, 0.5),
+                        Visibility::default(),
+                        Anchor::TOP_RIGHT,
+                    ))
+                    .observe(
+                        |trigger: On<EnterEvent>,
+                         mut q_field: Query<(&mut TextField, &mut TextFieldInfo)>,
+                         mut sim_info: ResMut<SimInfo>| {
+                            println!("Enter: {:?}", trigger.text_field.text);
+                            if let Ok((mut text, mut info)) = q_field.get_mut(trigger.entity) {
+                                text.text.clear();
+                                info.focus = false;
+                                if let Ok(parsed) = trigger.text_field.text.trim().parse::<f32>() {
+                                    let size = parsed.clamp(-7.5, 7.5);
+                                    sim_info.icon_size = size;
+                                } else {
+                                    sim_info.icon_size = 2.0;
+                                }
+                                info.placeholder = Some(sim_info.icon_size.to_string());
+                            }
+                        },
+                    );
+                });
+
+                p.spawn((
+                    Text2d::new("Collider"),
+                    TextFont {
+                        font: asset_server.load(FONTPATH),
+                        font_size: 50.0,
+                        ..Default::default()
+                    },
+                    Anchor::TOP_LEFT,
+                    TextColor(BLACK.into()),
+                    Transform::from_xyz(10.0, -150.0, 0.1),
+                ));
+
+                p.spawn((
+                    Sprite {
+                        custom_size: Some(Vec2::new((width - 40.0) * 0.314, 60.0)),
+                        color: WHITE.into(),
+                        ..Default::default()
+                    },
+                    Transform::from_xyz(width - 30.0, -150.0, 0.1),
+                    Anchor::TOP_RIGHT,
+                    Pickable::default(),
+                    Visibility::default(),
+                ))
+                .with_children(|p| {
+                    let par = sim_info.icon_size.to_string();
+
+                    p.spawn((
+                        TextField::default(),
+                        TextFieldStyle {
+                            font: TextFont {
+                                font: asset_server.load(FONTPATH),
+                                font_size: 50.0,
+                                ..Default::default()
+                            },
+                            color: BLACK.into(),
+                            placeholder_color: GRAY.into(),
+                            ..Default::default()
+                        },
+                        TextFieldInfo {
+                            focus: false,
+                            max_length: Some(4),
+                            placeholder: Some(par),
+                            ..Default::default()
+                        },
+                        Text2d::default(),
+                        Transform::from_xyz(-10.0, -1.0, 0.5),
+                        Visibility::default(),
+                        Anchor::TOP_RIGHT,
+                    ))
+                    .observe(
+                        |trigger: On<EnterEvent>,
+                         mut q_field: Query<(&mut TextField, &mut TextFieldInfo)>,
+                         mut sim_info: ResMut<SimInfo>| {
+                            println!("Enter: {:?}", trigger.text_field.text);
+                            if let Ok((mut text, mut info)) = q_field.get_mut(trigger.entity) {
+                                text.text.clear();
+                                info.focus = false;
+                                if let Ok(parsed) = trigger.text_field.text.trim().parse::<f32>() {
+                                    let size = parsed.clamp(0.01, 7.0);
+                                    sim_info.collider_size = size;
+                                } else {
+                                    sim_info.collider_size = 2.0;
+                                }
+                                info.placeholder = Some(sim_info.collider_size.to_string());
+                            }
+                        },
+                    );
+                });
+            });
+
+            p.spawn((
+                Sprite {
+                    color: Color::srgba(0.0, 0.0, 0.0, 0.5),
+                    custom_size: Some(Vec2::new(width - 20.0, 220.0)),
+                    ..Default::default()
+                },
+                Anchor::TOP_LEFT,
+                Transform::from_xyz(0.0, -420.0, 0.1),
+            ))
+            .with_children(|p| {
+                p.spawn((
+                    Text2d::new("Color"),
+                    TextFont {
+                        font: asset_server.load(FONTPATH),
+                        font_size: 75.0,
+                        ..Default::default()
+                    },
+                    Anchor::TOP_LEFT,
+                    Transform::from_xyz(10.0, 0.0, 0.1),
+                ));
+                p.spawn((
+                    Text2d::new("Map"),
+                    TextFont {
+                        font: asset_server.load(FONTPATH),
+                        font_size: 50.0,
+                        ..Default::default()
+                    },
+                    Anchor::TOP_LEFT,
+                    TextColor(BLACK.into()),
+                    Transform::from_xyz(10.0, -85.0, 0.1),
+                ));
+
+                p.spawn((
+                    Sprite {
+                        custom_size: Some(Vec2::new((width - 40.0) * 0.45, 60.0)),
+                        color: WHITE.into(),
+                        ..Default::default()
+                    },
+                    Transform::from_xyz(width - 30.0, -80.0, 0.1),
+                    Anchor::TOP_RIGHT,
+                    Pickable::default(),
+                    Visibility::default(),
+                ))
+                .with_children(|p| {
+                    let par = sim_info.map_color.to_srgba().to_hex().to_string();
+
+                    p.spawn((
+                        TextField::default(),
+                        TextFieldStyle {
+                            font: TextFont {
+                                font: asset_server.load(FONTPATH),
+                                font_size: 50.0,
+                                ..Default::default()
+                            },
+                            color: BLACK.into(),
+                            placeholder_color: GRAY.into(),
+                            ..Default::default()
+                        },
+                        TextFieldInfo {
+                            focus: false,
+                            max_length: Some(7),
+                            placeholder: Some(par),
+                            ..Default::default()
+                        },
+                        Text2d::default(),
+                        Transform::from_xyz(-10.0, -1.0, 0.5),
+                        Visibility::default(),
+                        Anchor::TOP_RIGHT,
+                    ))
+                    .observe(
+                        |trigger: On<EnterEvent>,
+                         mut q_field: Query<(&mut TextField, &mut TextFieldInfo)>,
+                         mut sim_info: ResMut<SimInfo>| {
+                            println!("Enter: {:?}", trigger.text_field.text);
+                            if let Ok((mut text, mut info)) = q_field.get_mut(trigger.entity) {
+                                text.text.clear();
+                                info.focus = false;
+                                if let Ok(parsed) = Srgba::hex(trigger.text_field.text.trim()) {
+                                    sim_info.map_color = parsed.into();
+                                } else {
+                                    sim_info.map_color = BLACK.into();
+                                }
+                                info.placeholder =
+                                    Some(sim_info.map_color.to_srgba().to_hex().to_string());
+                            }
+                        },
+                    );
+                });
+
+                p.spawn((
+                    Text2d::new("BackGround"),
+                    TextFont {
+                        font: asset_server.load(FONTPATH),
+                        font_size: 50.0,
+                        ..Default::default()
+                    },
+                    Anchor::TOP_LEFT,
+                    TextColor(BLACK.into()),
+                    Transform::from_xyz(10.0, -150.0, 0.1),
+                ));
+
+                p.spawn((
+                    Sprite {
+                        custom_size: Some(Vec2::new((width - 40.0) * 0.45, 60.0)),
+                        color: WHITE.into(),
+                        ..Default::default()
+                    },
+                    Transform::from_xyz(width - 30.0, -150.0, 0.1),
+                    Anchor::TOP_RIGHT,
+                    Pickable::default(),
+                    Visibility::default(),
+                ))
+                .with_children(|p| {
+                    let par = clear_color.0.to_srgba().to_hex().to_string();
+
+                    p.spawn((
+                        TextField::default(),
+                        TextFieldStyle {
+                            font: TextFont {
+                                font: asset_server.load(FONTPATH),
+                                font_size: 50.0,
+                                ..Default::default()
+                            },
+                            color: BLACK.into(),
+                            placeholder_color: GRAY.into(),
+                            ..Default::default()
+                        },
+                        TextFieldInfo {
+                            focus: false,
+                            max_length: Some(7),
+                            placeholder: Some(par),
+                            ..Default::default()
+                        },
+                        Text2d::default(),
+                        Transform::from_xyz(-10.0, -1.0, 0.5),
+                        Visibility::default(),
+                        Anchor::TOP_RIGHT,
+                    ))
+                    .observe(
+                        |trigger: On<EnterEvent>,
+                         mut q_field: Query<(&mut TextField, &mut TextFieldInfo)>,
+                         mut clear_color: ResMut<ClearColor>| {
+                            println!("Enter: {:?}", trigger.text_field.text);
+                            if let Ok((mut text, mut info)) = q_field.get_mut(trigger.entity) {
+                                text.text.clear();
+                                info.focus = false;
+                                if let Ok(parsed) = Srgba::hex(trigger.text_field.text.trim()) {
+                                    clear_color.0 = parsed.into();
+                                } else {
+                                    clear_color.0 = ClearColor::default().0;
+                                }
+                                info.placeholder =
+                                    Some(clear_color.0.to_srgba().to_hex().to_string());
+                            }
+                        },
+                    );
+                });
+            });
+
+            p.spawn((
+                Sprite {
+                    color: Color::srgba(0.0, 0.0, 0.0, 0.5),
+                    custom_size: Some(Vec2::new(width - 20.0, 70.0)),
+                    ..Default::default()
+                },
+                Anchor::TOP_LEFT,
+                Transform::from_xyz(0.0, -650.0, 0.1),
+            ))
+            .with_children(|p| {
+                p.spawn((
+                    Text2d::new("Rank"),
+                    TextFont {
+                        font: asset_server.load(FONTPATH),
+                        font_size: 50.0,
+                        ..Default::default()
+                    },
+                    Anchor::TOP_LEFT,
+                    TextColor(BLACK.into()),
+                    Transform::from_xyz(10.0, -5.0, 0.1),
+                ));
+
+                p.spawn((
+                    Sprite {
+                        custom_size: Some(Vec2::new(100.0, 50.0)),
+                        color: WHITE.into(),
+                        ..Default::default()
+                    },
+                    Transform::from_xyz(width - 30.0, -10.0, 0.1),
+                    Anchor::TOP_RIGHT,
+                    Pickable::default(),
+                    Visibility::default(),
+                ))
+                .with_children(|p| {
+                    let color = if sim_info.view_rank {
+                        BLACK.into()
+                    } else {
+                        GRAY.into()
+                    };
+                    let x = if sim_info.view_rank { -55.0 } else { -5.0 };
+                    p.spawn((
+                        Sprite {
+                            custom_size: Some(Vec2::new(40.0, 40.0)),
+                            color: color,
+                            ..Default::default()
+                        },
+                        Transform::from_xyz(x, -5.0, 0.1),
+                        Anchor::TOP_RIGHT,
+                        Visibility::default(),
+                        RankButton,
+                    ));
+                })
+                .observe(
+                    |_: On<Pointer<Click>>,
+                     mut s_button: Single<(&mut Sprite, &mut Transform), With<RankButton>>,
+                     mut sim_info: ResMut<SimInfo>| {
+                        sim_info.view_rank = !sim_info.view_rank;
+                        s_button.0.color = if sim_info.view_rank {
+                            BLACK.into()
+                        } else {
+                            GRAY.into()
+                        };
+
+                        s_button.1.translation.x = if sim_info.view_rank { -55.0 } else { -5.0 };
+                    },
+                );
+            });
+        });
+    }
+}
+
 fn remove_type(
     mut msg: MessageReader<RemoveType>,
     mut state: ResMut<NextState<SimState>>,
@@ -772,4 +1340,8 @@ fn remove_type(
         custom_info.len -= 1;
         state.set(SimState::ReSpawnChildren);
     }
+}
+
+fn change_map_color(mut s_map: Single<&mut Sprite, With<MapSprite>>, sim_info: Res<SimInfo>) {
+    s_map.color = sim_info.map_color;
 }

@@ -1,4 +1,4 @@
-use std::f32::consts::TAU;
+use std::{collections::HashMap, f32::consts::TAU};
 
 use avian2d::prelude::{
     Collider, CollisionEventsEnabled, CollisionLayers, CollisionStart, LayerMask, LinearVelocity,
@@ -21,6 +21,7 @@ use bevy::{
         message::MessageReader,
         observer::On,
         query::With,
+        resource::Resource,
         schedule::IntoScheduleConfigs,
         system::{Commands, Query, Res, ResMut, Single},
     },
@@ -40,7 +41,7 @@ use bevy::{
     },
     window::{PrimaryWindow, Window},
 };
-use rand::RngExt;
+use rand::{RngExt, SeedableRng, rngs::StdRng};
 
 use crate::{
     CamerInfo, FONTPATH, LIST, SimState, custom::CustomInfo, despawn_screen, main_home::MainUi,
@@ -51,14 +52,35 @@ use crate::{
 pub struct Player;
 #[derive(Component)]
 struct SimUi;
+#[derive(Component)]
+pub struct MapSprite;
+#[derive(Component)]
+pub struct RankUi;
+#[derive(Debug, Resource)]
+pub struct SimInfo {
+    pub seed: Option<u64>,
+    pub collider_size: f32,
+    pub icon_size: f32,
+    pub view_rank: bool,
+    pub map_size: f32,
+    pub map_color: Color,
+}
 
 pub fn sim_plugin(app: &mut App) {
     app.add_systems(OnEnter(SimState::Sim), setup)
         .add_systems(
             Update,
-            (collision_event, enforce_speed).run_if(in_state(SimState::Sim)),
+            (collision_event, enforce_speed, rank_view).run_if(in_state(SimState::Sim)),
         )
-        .add_systems(Startup, (set_wall, spawn_player))
+        .insert_resource(SimInfo {
+            seed: None,
+            icon_size: 2.0,
+            collider_size: 2.0,
+            view_rank: false,
+            map_size: 0.0,
+            map_color: BLACK.into(),
+        })
+        .add_systems(Startup, (set_wall, spawn_player).chain())
         .add_systems(OnExit(SimState::Sim), despawn_screen::<SimUi>);
 }
 
@@ -158,20 +180,26 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 );
         });
 }
-pub fn set_wall(mut commands: Commands, window: Single<&Window, With<PrimaryWindow>>) {
+pub fn set_wall(
+    mut commands: Commands,
+    window: Single<&Window, With<PrimaryWindow>>,
+    mut sim_info: ResMut<SimInfo>,
+) {
     let width = window.width();
     let height = window.height();
 
     let min_size = width.min(height);
+    sim_info.map_size = min_size;
 
     commands.spawn((
         Sprite {
-            color: BLACK.into(),
+            color: sim_info.map_color,
             custom_size: Some(Vec2::new(min_size, min_size)),
             ..Default::default()
         },
-        Transform::from_xyz(0.0, 0.0, -10.0),
+        Transform::from_xyz(0.0, 0.0, -100.0),
         MainUi,
+        MapSprite,
     ));
 
     let wall_color = Color::NONE;
@@ -228,12 +256,20 @@ pub fn set_wall(mut commands: Commands, window: Single<&Window, With<PrimaryWind
     ));
 }
 
-pub fn spawn_player(mut commands: Commands, custom_info: Res<CustomInfo>) {
-    let mut rng = rand::rng();
+pub fn spawn_player(mut commands: Commands, custom_info: Res<CustomInfo>, sim_info: Res<SimInfo>) {
+    let mut rng = if let Some(seed) = sim_info.seed {
+        StdRng::seed_from_u64(seed)
+    } else {
+        rand::make_rng()
+    };
+
+    let collider_size = sim_info.collider_size * sim_info.map_size / (2.4 * 10.0 * 2.0);
+    let icon_size = sim_info.icon_size * sim_info.map_size / (2.25 * 10.0 * 2.0);
+    let half_range = (sim_info.map_size - collider_size) * 0.45;
 
     let player_basic = (
         RigidBody::Dynamic,
-        Collider::rectangle(30.0, 30.0),
+        Collider::rectangle(collider_size, collider_size),
         Restitution::new(1.0),
         CollisionEventsEnabled,
         Player,
@@ -256,21 +292,21 @@ pub fn spawn_player(mut commands: Commands, custom_info: Res<CustomInfo>) {
         let player = (
             Sprite {
                 image: handle.clone(),
-                custom_size: Some(Vec2::new(32.0, 32.0)),
+                custom_size: Some(Vec2::new(icon_size, icon_size)),
                 ..Default::default()
             },
             CollisionLayers::new(my_layer, all),
         );
 
         for _ in 0..num.abs() {
-            let x = rng.random_range(-300.0..300.0);
-            let y = rng.random_range(-300.0..300.0);
+            let x = rng.random_range(-half_range..half_range);
+            let y = rng.random_range(-half_range..half_range);
 
             let angle = rng.random_range(0.0..TAU);
 
             commands.spawn((
                 LinearVelocity(Vec2::new(angle.cos() * speed, angle.sin() * speed)),
-                Transform::from_xyz(x, y, 0.0),
+                Transform::from_xyz(x, y, -55.0),
                 player_basic.clone(),
                 player.clone(),
             ));
@@ -344,4 +380,35 @@ fn enforce_speed(mut query: Query<&mut LinearVelocity>) {
             velocity.0 = velocity.normalize() * target_speed;
         }
     }
+}
+
+fn set_rank(mut commands: Commands, custom_info: Res<CustomInfo>, sim_info: Res<SimInfo>) {
+    if sim_info.view_rank == false {
+        return;
+    }
+
+    for i in 1..=10.min(custom_info.len) {
+        //이미지및 text 생성
+    }
+}
+
+fn rank_view(
+    q_player: Query<&CollisionLayers, With<Player>>,
+    custom_info: Res<CustomInfo>,
+    sim_info: Res<SimInfo>,
+) {
+    if sim_info.view_rank == false {
+        return;
+    }
+    let mut key: Vec<i32> = (1..=custom_info.len).collect();
+    let mut value = vec![0; custom_info.len as usize];
+
+    for layer in q_player.iter() {
+        let num = get_layer(layer.memberships, custom_info.len) as usize;
+        value[num - 1] += 1;
+    }
+
+    key.sort_by(|a, b| value[(b - 1) as usize].cmp(&value[(a - 1) as usize]));
+
+    println!("Rank: {:?}", key);
 }

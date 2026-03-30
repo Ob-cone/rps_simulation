@@ -18,7 +18,10 @@ use bevy::{
 
 use crate::{
     SimState,
-    custom::{CustomUi, TypeParent, set_custom_ui, spawn_type_children, spawn_type_ui},
+    custom::{
+        CustomUi, TypeParent, set_custom_ui, spawn_env_children, spawn_env_ui, spawn_type_children,
+        spawn_type_ui,
+    },
     despawn_screen,
     main_home::{MainUi, main_ui_setup},
     move_camera::MoveInfo,
@@ -50,6 +53,8 @@ pub fn respawn_plugin(app: &mut App) {
                 set_wall,
                 spawn_type_ui,
                 spawn_type_children,
+                spawn_env_ui,
+                spawn_env_children,
                 respawn_exit,
             )
                 .chain(),
