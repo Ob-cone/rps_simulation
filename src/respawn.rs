@@ -18,6 +18,7 @@ use bevy::{
 
 use crate::{
     SimState,
+    credit::set_credit,
     custom::{
         CustomUi, TypeParent, set_custom_ui, spawn_env_children, spawn_env_ui, spawn_type_children,
         spawn_type_ui,
@@ -55,6 +56,7 @@ pub fn respawn_plugin(app: &mut App) {
                 spawn_type_children,
                 spawn_env_ui,
                 spawn_env_children,
+                set_credit,
                 respawn_exit,
             )
                 .chain(),
@@ -62,7 +64,11 @@ pub fn respawn_plugin(app: &mut App) {
         .add_systems(Update, check_window)
         .add_systems(
             Update,
-            resize_change.run_if(in_state(SimState::Main).or(in_state(SimState::Custom))),
+            resize_change.run_if(
+                in_state(SimState::Main)
+                    .or(in_state(SimState::Custom))
+                    .or(in_state(SimState::Credit)),
+            ),
         );
 }
 

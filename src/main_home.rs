@@ -15,15 +15,15 @@ use bevy::{
         Pickable,
         events::{Click, Pointer},
     },
-    sprite::{Sprite, Text2d},
-    state::state::{NextState, State},
-    text::{TextColor, TextFont},
+    sprite::{Anchor, Sprite, Text2d},
+    state::state::NextState,
+    text::{TextColor, TextFont, Underline},
     time::Time,
     transform::components::Transform,
     window::{PrimaryWindow, Window},
 };
 
-use crate::{CamerInfo, FONTPATH, SimState, custom::ImageChannel, move_camera::MoveInfo};
+use crate::{CamerInfo, FONTPATH, SimState, move_camera::MoveInfo};
 
 pub fn main_home_plugin(app: &mut App) {
     app.add_systems(Startup, main_ui_setup);
@@ -49,17 +49,18 @@ pub fn main_ui_setup(
     camer_info.scale = scale;
 
     //println!("Last: {:?}", state.0);
-    let num = if state.next == SimState::Custom {
-        -1.0
+    let (num, c_num) = if state.next == SimState::Custom {
+        (-1.0, 1.0)
+    } else if state.next == SimState::Credit {
+        (4.0 - 2.0, 2.0)
     } else {
-        1.0
+        (1.0, 1.0)
     };
-
     commands.spawn((
         Camera2d,
         Transform::from_xyz(width / 6.0 * scale * num, 0.0, 0.0),
         Projection::Orthographic(OrthographicProjection {
-            scale: scale,
+            scale: scale * c_num,
             ..OrthographicProjection::default_2d()
         }),
         MainUi,
@@ -180,6 +181,57 @@ pub fn main_ui_setup(
                     scale: (camera_info.scale, camera_info.scale),
                     next: SimState::Custom,
                 };
+            },
+        );
+
+    commands
+        .spawn((
+            Sprite {
+                color: WHITE.into(),
+                custom_size: Some(Vec2::new(300.0, 40.0)),
+                ..Default::default()
+            },
+            Transform::from_xyz(
+                width / 2.0 * scale + ui_width / 2.0 - 10.0,
+                -height * scale / 2.0 + 10.0,
+                10.0,
+            ),
+            Anchor::BOTTOM_RIGHT,
+            NoFrustumCulling,
+            Pickable::default(),
+            MainUi,
+        ))
+        .with_children(|p| {
+            p.spawn((
+                Text2d("Made by Ob-cone".to_string()),
+                TextFont {
+                    font: asset_server.load(FONTPATH),
+                    font_size: 30.0,
+                    ..Default::default()
+                },
+                Underline,
+                TextColor(BLACK.into()),
+                NoFrustumCulling,
+                Pickable::default(),
+                MainUi,
+                Anchor::BOTTOM_RIGHT,
+            ));
+        })
+        .observe(
+            |_: On<Pointer<Click>>,
+             mut move_info: ResMut<MoveInfo>,
+             mut state: ResMut<NextState<SimState>>,
+             camer_info: ResMut<'_, CamerInfo>| {
+                let ms = 2.0;
+                println!("B: {:?}", camer_info.x * (4.0 - ms));
+                move_info.time = 0.0;
+                move_info.next = SimState::Credit;
+                move_info.scale = (camer_info.scale, camer_info.scale * 2.0);
+                move_info.trans = (
+                    Vec3::new(camer_info.x, 0.0, 0.0),
+                    Vec3::new(camer_info.x * (4.0 - ms), 0.0, 0.0),
+                );
+                state.set(SimState::Move);
             },
         );
 }

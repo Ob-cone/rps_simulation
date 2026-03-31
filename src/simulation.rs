@@ -31,7 +31,7 @@ use bevy::{
         state::{NextState, OnEnter, OnExit},
     },
     text::{FontWeight, TextColor, TextFont},
-    time::{Fixed, Time},
+    time::Time,
     transform::components::Transform,
     ui::{
         AlignItems, BackgroundColor, BorderRadius, JustifyContent, Node, PositionType, UiRect, Val,
@@ -40,7 +40,7 @@ use bevy::{
     window::{PrimaryWindow, Window},
 };
 use rand::{RngExt, SeedableRng, rngs::StdRng};
-use std::{collections::HashMap, f32::consts::TAU, fmt::format};
+use std::f32::consts::TAU;
 use web_time::Instant;
 
 use crate::{
@@ -336,7 +336,7 @@ fn collision_event(
 
         let e1_layer = get_layer(e1_mask, len);
         let e2_layer = get_layer(e2_mask, len);
-        println!("len: {:?}, {:?} {:?}", len, e1_layer, e2_layer);
+        //println!("len: {:?}, {:?} {:?}", len, e1_layer, e2_layer);
 
         if e1_layer == 0 || e2_layer == 0 || e1_layer == e2_layer {
             continue;

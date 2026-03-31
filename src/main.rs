@@ -16,10 +16,12 @@ use bevy::{
 use bevy_bc_ime_text_field::ImeTextFieldPlugin;
 
 use crate::{
-    custom::custom_plugin, main_home::main_home_plugin, move_camera::move_plugin,
-    respawn::respawn_plugin, scroller::scroller_plugin, simulation::sim_plugin,
+    credit::credit_plugin, custom::custom_plugin, main_home::main_home_plugin,
+    move_camera::move_plugin, respawn::respawn_plugin, scroller::scroller_plugin,
+    simulation::sim_plugin,
 };
 
+mod credit;
 mod custom;
 mod main_home;
 mod move_camera;
@@ -51,6 +53,7 @@ fn main() {
             custom_plugin,
             respawn_plugin,
             scroller_plugin,
+            credit_plugin,
         ))
         .run();
 }
@@ -71,6 +74,7 @@ enum SimState {
     ReSpawnChildren,
     Sim,
     Custom,
+    Credit,
 }
 
 #[derive(Debug, Resource)]
