@@ -1,5 +1,3 @@
-use std::{collections::HashMap, f32::consts::TAU};
-
 use avian2d::prelude::{
     Collider, CollisionEventsEnabled, CollisionLayers, CollisionStart, LayerMask, LinearVelocity,
     Physics, PhysicsTime, Restitution, RigidBody,
@@ -33,15 +31,17 @@ use bevy::{
         state::{NextState, OnEnter, OnExit},
     },
     text::{FontWeight, TextColor, TextFont},
-    time::Time,
+    time::{Fixed, Time},
     transform::components::Transform,
     ui::{
         AlignItems, BackgroundColor, BorderRadius, JustifyContent, Node, PositionType, UiRect, Val,
-        widget::Text,
+        widget::{ImageNode, Text},
     },
     window::{PrimaryWindow, Window},
 };
 use rand::{RngExt, SeedableRng, rngs::StdRng};
+use std::{collections::HashMap, f32::consts::TAU, fmt::format};
+use web_time::Instant;
 
 use crate::{
     CamerInfo, FONTPATH, LIST, SimState, custom::CustomInfo, despawn_screen, main_home::MainUi,
@@ -55,7 +55,7 @@ struct SimUi;
 #[derive(Component)]
 pub struct MapSprite;
 #[derive(Component)]
-pub struct RankUi;
+pub struct RankUi(pub i32);
 #[derive(Debug, Resource)]
 pub struct SimInfo {
     pub seed: Option<u64>,
@@ -65,9 +65,12 @@ pub struct SimInfo {
     pub map_size: f32,
     pub map_color: Color,
 }
+#[derive(Resource)]
+pub struct RankTimer(pub Instant);
 
 pub fn sim_plugin(app: &mut App) {
-    app.add_systems(OnEnter(SimState::Sim), setup)
+    app.insert_resource(RankTimer(Instant::now()))
+        .add_systems(OnEnter(SimState::Sim), (setup, set_rank))
         .add_systems(
             Update,
             (collision_event, enforce_speed, rank_view).run_if(in_state(SimState::Sim)),
@@ -81,7 +84,10 @@ pub fn sim_plugin(app: &mut App) {
             map_color: BLACK.into(),
         })
         .add_systems(Startup, (set_wall, spawn_player).chain())
-        .add_systems(OnExit(SimState::Sim), despawn_screen::<SimUi>);
+        .add_systems(
+            OnExit(SimState::Sim),
+            (despawn_screen::<SimUi>, despawn_screen::<RankUi>),
+        );
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -382,13 +388,43 @@ fn enforce_speed(mut query: Query<&mut LinearVelocity>) {
     }
 }
 
-fn set_rank(mut commands: Commands, custom_info: Res<CustomInfo>, sim_info: Res<SimInfo>) {
+fn set_rank(
+    mut commands: Commands,
+    custom_info: Res<CustomInfo>,
+    sim_info: Res<SimInfo>,
+    asset_server: Res<AssetServer>,
+) {
     if sim_info.view_rank == false {
         return;
     }
 
     for i in 1..=10.min(custom_info.len) {
-        //이미지및 text 생성
+        commands
+            .spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    top: Val::Px(10.0 + (i as f32 - 1.0) * 60.0),
+                    left: Val::Px(10.0),
+                    width: Val::Px(200.0),
+                    height: Val::Px(50.0),
+                    ..Default::default()
+                },
+                RankUi(i), //BackgroundColor(BLACK.into()),
+            ))
+            .with_children(|p| {
+                p.spawn((ImageNode {
+                    image: custom_info.image_hash[&i].clone(),
+                    ..Default::default()
+                },));
+                p.spawn((
+                    Text::new(": 30"),
+                    TextFont {
+                        font: asset_server.load(FONTPATH),
+                        font_size: 40.0,
+                        ..Default::default()
+                    },
+                ));
+            });
     }
 }
 
@@ -396,8 +432,16 @@ fn rank_view(
     q_player: Query<&CollisionLayers, With<Player>>,
     custom_info: Res<CustomInfo>,
     sim_info: Res<SimInfo>,
+    q_rank: Query<(&RankUi, &Children)>,
+    mut q_image: Query<&mut ImageNode>,
+    mut q_text: Query<&mut Text>,
+    mut rank_timer: ResMut<RankTimer>,
 ) {
     if sim_info.view_rank == false {
+        return;
+    }
+    let dur = Instant::now().duration_since(rank_timer.0);
+    if dur.as_secs_f32() < 1.0 / 60.0 {
         return;
     }
     let mut key: Vec<i32> = (1..=custom_info.len).collect();
@@ -410,5 +454,15 @@ fn rank_view(
 
     key.sort_by(|a, b| value[(b - 1) as usize].cmp(&value[(a - 1) as usize]));
 
-    println!("Rank: {:?}", key);
+    for (rank, children) in q_rank.iter() {
+        for child in children.iter() {
+            if let Ok(mut text) = q_text.get_mut(child.entity()) {
+                text.0 = format!(": {:?}", value[(key[(rank.0 - 1) as usize] - 1) as usize]);
+            }
+            if let Ok(mut image) = q_image.get_mut(child.entity()) {
+                image.image = custom_info.image_hash[&key[(rank.0 - 1) as usize]].clone();
+            }
+        }
+    }
+    rank_timer.0 = Instant::now();
 }
