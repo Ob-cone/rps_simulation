@@ -11,18 +11,19 @@ opt-level = 3
 
 [dependencies]
 avian2d = "0.6.0"
-bevy = {version = "0.18.1", features = ["debug","dynamic_linking"]}
+bevy = {version = "0.18.1", features = ["debug"]}
 bevy_bc_ime_text_field = "0.1.2"
 cargo_toml = "0.22.3"
 image = "0.25.10"
-open = "5.3.3"
 pollster = "0.4.0"
 rand = "0.10.0"
 rfd = "0.17.2"
 wasm-bindgen-futures = "0.4.64"
+
 web-time = "1.1.0"
-
-
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+open = "5.3.3"
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.3", features = ["wasm_js"] }
 getrandom04 = { package = "getrandom", version = "0.4", features = ["wasm_js"] }
+web-sys = "0.3.93"

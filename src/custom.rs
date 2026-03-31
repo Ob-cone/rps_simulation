@@ -37,7 +37,7 @@ use bevy::{
     },
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
     sprite::{Anchor, Sprite, Text2d},
-    state::state::NextState,
+    state::state::{NextState, State},
     text::{TextColor, TextFont},
     transform::components::Transform,
     window::{PrimaryWindow, Window},
@@ -232,7 +232,11 @@ pub fn set_custom_ui(
         .observe(
             |_: On<Pointer<Click>>,
              mut select: ResMut<CustomSelect>,
-             mut resize: ResMut<IsResize>| {
+             mut resize: ResMut<IsResize>,
+             state: Res<State<SimState>>| {
+                if state.get() != &SimState::Custom {
+                    return;
+                }
                 select.0 = false;
                 resize.0 = true;
             },
@@ -257,7 +261,11 @@ pub fn set_custom_ui(
         .observe(
             |_: On<Pointer<Click>>,
              mut select: ResMut<CustomSelect>,
-             mut resize: ResMut<IsResize>| {
+             mut resize: ResMut<IsResize>,
+             state: Res<State<SimState>>| {
+                if state.get() != &SimState::Custom {
+                    return;
+                }
                 select.0 = true;
                 resize.0 = true;
             },
@@ -276,7 +284,12 @@ pub fn set_custom_ui(
             NoFrustumCulling,
         ))
         .observe(
-            |_: On<Pointer<Click>>, mut state: ResMut<NextState<SimState>>| {
+            |_: On<Pointer<Click>>,
+             mut state: ResMut<NextState<SimState>>,
+             n_state: Res<State<SimState>>| {
+                if n_state.get() != &SimState::Custom {
+                    return;
+                }
                 state.set(SimState::ReSpawnPlayer);
             },
         );
@@ -299,7 +312,11 @@ pub fn set_custom_ui(
             |_: On<Pointer<Click>>,
              mut state: ResMut<NextState<SimState>>,
              mut move_info: ResMut<MoveInfo>,
-             camera_info: Res<CamerInfo>| {
+             camera_info: Res<CamerInfo>,
+             n_state: Res<State<SimState>>| {
+                if n_state.get() != &SimState::Custom {
+                    return;
+                }
                 state.set(SimState::Move);
                 *move_info = MoveInfo {
                     time: 0.0,
@@ -333,6 +350,7 @@ pub fn set_custom_ui(
         },
         Transform::from_xyz(-width / 2.0 * scale, y - 0.5 * block_height - 20.0, 5.0),
         CustomUi,
+        Pickable::default(),
         NoFrustumCulling,
     ));
 
@@ -348,6 +366,7 @@ pub fn set_custom_ui(
         Transform::from_xyz(-width / 2.0 * scale, y - 0.5 * block_height - 10.0, 5.0),
         CustomUi,
         Anchor::BOTTOM_CENTER,
+        Pickable::default(),
         NoFrustumCulling,
     ));
 
@@ -359,6 +378,7 @@ pub fn set_custom_ui(
         },
         Transform::from_xyz(-width / 2.0 * scale, -y - block_width / 2.0 + 20.0, 15.0),
         CustomUi,
+        Pickable::default(),
         NoFrustumCulling,
     ));
     commands.spawn((
@@ -373,6 +393,7 @@ pub fn set_custom_ui(
         Transform::from_xyz(-width / 2.0 * scale, -y - block_width / 2.0 + 20.0, 13.0),
         CustomUi,
         Anchor::TOP_CENTER,
+        Pickable::default(),
         NoFrustumCulling,
     ));
 }
@@ -414,8 +435,13 @@ pub fn spawn_type_ui(
             Pickable::default(),
         ))
         .observe(
-            |trigger: On<Pointer<Scroll>>, mut scroll: ResMut<ScrollMove>| {
+            |trigger: On<Pointer<Scroll>>,
+             mut scroll: ResMut<ScrollMove>,
+             state: Res<State<SimState>>| {
                 //println!("SC: {:?}",trigger.y);
+                if state.get() != &SimState::Custom {
+                    return;
+                }
                 scroll.0 = 1;
                 scroll.1 += trigger.y;
             },
@@ -499,7 +525,13 @@ pub fn spawn_type_children(
                         Pickable::default(),
                     ))
                     .observe(
-                        move |_: On<Pointer<Click>>, image_channel: Res<ImageChannel>| {
+                        move |_: On<Pointer<Click>>,
+                              image_channel: Res<ImageChannel>,
+                              state: Res<State<SimState>>| {
+                            if state.get() != &SimState::Custom {
+                                return;
+                            }
+
                             let tx = image_channel.0.clone();
                             println!("Num: {:?}", num);
                             #[cfg(not(target_arch = "wasm32"))]
@@ -601,13 +633,17 @@ pub fn spawn_type_children(
                                 &mut TextFieldInfo,
                                 &CustomNum,
                             )>,
-                             mut custom_info: ResMut<CustomInfo>| {
+                             mut custom_info: ResMut<CustomInfo>,
+                             state: Res<State<SimState>>| {
                                 println!("Enter: {:?}", trigger.text_field.text);
                                 if let Ok((mut text, mut info, num)) =
                                     q_field.get_mut(trigger.entity)
                                 {
                                     text.text.clear();
                                     info.focus = false;
+                                    if state.get() != &SimState::Custom {
+                                        return;
+                                    }
                                     if let Ok(parsed) =
                                         trigger.text_field.text.trim().parse::<i32>()
                                     {
@@ -642,7 +678,12 @@ pub fn spawn_type_children(
                         Transform::from_xyz(-10.0, 10.0, 0.1),
                     ))
                     .observe(
-                        move |_: On<Pointer<Click>>, mut writer: MessageWriter<RemoveType>| {
+                        move |_: On<Pointer<Click>>,
+                              mut writer: MessageWriter<RemoveType>,
+                              state: Res<State<SimState>>| {
+                            if state.get() != &SimState::Custom {
+                                return;
+                            }
                             writer.write(RemoveType(item_num));
                         },
                     );
@@ -672,7 +713,11 @@ pub fn spawn_type_children(
                  mut custom_info: ResMut<'_, CustomInfo>,
                  asset_server: Res<'_, AssetServer>,
                  mut scroller: Single<&mut Scroller, With<TypeParent>>,
-                 mut state: ResMut<NextState<SimState>>| {
+                 mut state: ResMut<NextState<SimState>>,
+                 n_state: Res<State<SimState>>| {
+                    if n_state.get() != &SimState::Custom {
+                        return;
+                    }
                     if custom_info.len == 30 {
                         return;
                     }
@@ -713,7 +758,11 @@ pub fn spawn_type_children(
             .observe(
                 |_: On<Pointer<Click>>,
                  mut custom_info: ResMut<CustomInfo>,
-                 mut state: ResMut<NextState<SimState>>| {
+                 mut state: ResMut<NextState<SimState>>,
+                 n_state: Res<State<SimState>>| {
+                    if n_state.get() != &SimState::Custom {
+                        return;
+                    }
                     let mut rng = rand::rng();
                     state.set(SimState::ReSpawnChildren);
                     let keys: Vec<i32> = custom_info.image_hash.keys().cloned().collect();
@@ -760,7 +809,11 @@ pub fn spawn_type_children(
                 |_: On<Pointer<Click>>,
                  custom_info: ResMut<CustomInfo>,
                  mut resize: ResMut<IsResize>,
-                 asset_server: Res<AssetServer>| {
+                 asset_server: Res<AssetServer>,
+                 state: Res<State<SimState>>| {
+                    if state.get() != &SimState::Custom {
+                        return;
+                    }
                     resize.0 = true;
                     custom_info_reset(custom_info, asset_server);
                 },
@@ -806,7 +859,12 @@ pub fn spawn_env_ui(
             Pickable::default(),
         ))
         .observe(
-            |trigger: On<Pointer<Scroll>>, mut scroll: ResMut<ScrollMove>| {
+            |trigger: On<Pointer<Scroll>>,
+             mut scroll: ResMut<ScrollMove>,
+             state: Res<State<SimState>>| {
+                if state.get() != &SimState::Custom {
+                    return;
+                }
                 //println!("SC: {:?}",trigger.y);
                 scroll.0 = 1;
                 scroll.1 += trigger.y;
@@ -912,11 +970,15 @@ pub fn spawn_env_children(
                     .observe(
                         |trigger: On<EnterEvent>,
                          mut q_field: Query<(&mut TextField, &mut TextFieldInfo)>,
-                         mut sim_info: ResMut<SimInfo>| {
+                         mut sim_info: ResMut<SimInfo>,
+                         state: Res<State<SimState>>| {
                             println!("Enter: {:?}", trigger.text_field.text);
                             if let Ok((mut text, mut info)) = q_field.get_mut(trigger.entity) {
                                 text.text.clear();
                                 info.focus = false;
+                                if state.get() != &SimState::Custom {
+                                    return;
+                                }
                                 if let Ok(parsed) = trigger.text_field.text.trim().parse::<u64>() {
                                     sim_info.seed = Some(parsed);
                                     info.placeholder = Some(parsed.to_string());
@@ -1002,11 +1064,15 @@ pub fn spawn_env_children(
                     .observe(
                         |trigger: On<EnterEvent>,
                          mut q_field: Query<(&mut TextField, &mut TextFieldInfo)>,
-                         mut sim_info: ResMut<SimInfo>| {
+                         mut sim_info: ResMut<SimInfo>,
+                         state: Res<State<SimState>>| {
                             println!("Enter: {:?}", trigger.text_field.text);
                             if let Ok((mut text, mut info)) = q_field.get_mut(trigger.entity) {
                                 text.text.clear();
                                 info.focus = false;
+                                if state.get() != &SimState::Custom {
+                                    return;
+                                }
                                 if let Ok(parsed) = trigger.text_field.text.trim().parse::<f32>() {
                                     let size = parsed.clamp(-7.5, 7.5);
                                     sim_info.icon_size = size;
@@ -1071,11 +1137,15 @@ pub fn spawn_env_children(
                     .observe(
                         |trigger: On<EnterEvent>,
                          mut q_field: Query<(&mut TextField, &mut TextFieldInfo)>,
-                         mut sim_info: ResMut<SimInfo>| {
+                         mut sim_info: ResMut<SimInfo>,
+                         state: Res<State<SimState>>| {
                             println!("Enter: {:?}", trigger.text_field.text);
                             if let Ok((mut text, mut info)) = q_field.get_mut(trigger.entity) {
                                 text.text.clear();
                                 info.focus = false;
+                                if state.get() != &SimState::Custom {
+                                    return;
+                                }
                                 if let Ok(parsed) = trigger.text_field.text.trim().parse::<f32>() {
                                     let size = parsed.clamp(0.01, 7.0);
                                     sim_info.collider_size = size;
@@ -1161,11 +1231,15 @@ pub fn spawn_env_children(
                     .observe(
                         |trigger: On<EnterEvent>,
                          mut q_field: Query<(&mut TextField, &mut TextFieldInfo)>,
-                         mut sim_info: ResMut<SimInfo>| {
+                         mut sim_info: ResMut<SimInfo>,
+                         state: Res<State<SimState>>| {
                             println!("Enter: {:?}", trigger.text_field.text);
                             if let Ok((mut text, mut info)) = q_field.get_mut(trigger.entity) {
                                 text.text.clear();
                                 info.focus = false;
+                                if state.get() != &SimState::Custom {
+                                    return;
+                                }
                                 if let Ok(parsed) = Srgba::hex(trigger.text_field.text.trim()) {
                                     sim_info.map_color = parsed.into();
                                 } else {
@@ -1230,11 +1304,15 @@ pub fn spawn_env_children(
                     .observe(
                         |trigger: On<EnterEvent>,
                          mut q_field: Query<(&mut TextField, &mut TextFieldInfo)>,
-                         mut clear_color: ResMut<ClearColor>| {
+                         mut clear_color: ResMut<ClearColor>,
+                         state: Res<State<SimState>>| {
                             println!("Enter: {:?}", trigger.text_field.text);
                             if let Ok((mut text, mut info)) = q_field.get_mut(trigger.entity) {
                                 text.text.clear();
                                 info.focus = false;
+                                if state.get() != &SimState::Custom {
+                                    return;
+                                }
                                 if let Ok(parsed) = Srgba::hex(trigger.text_field.text.trim()) {
                                     clear_color.0 = parsed.into();
                                 } else {
@@ -1303,7 +1381,11 @@ pub fn spawn_env_children(
                 .observe(
                     |_: On<Pointer<Click>>,
                      mut s_button: Single<(&mut Sprite, &mut Transform), With<RankButton>>,
-                     mut sim_info: ResMut<SimInfo>| {
+                     mut sim_info: ResMut<SimInfo>,
+                     state: Res<State<SimState>>| {
+                        if state.get() != &SimState::Custom {
+                            return;
+                        }
                         sim_info.view_rank = !sim_info.view_rank;
                         s_button.0.color = if sim_info.view_rank {
                             BLACK.into()

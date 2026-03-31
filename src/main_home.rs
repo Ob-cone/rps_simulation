@@ -16,7 +16,7 @@ use bevy::{
         events::{Click, Pointer},
     },
     sprite::{Anchor, Sprite, Text2d},
-    state::state::NextState,
+    state::state::{NextState, State},
     text::{TextColor, TextFont, Underline},
     time::Time,
     transform::components::Transform,
@@ -107,7 +107,11 @@ pub fn main_ui_setup(
             |_: On<Pointer<Click>>,
              mut state: ResMut<NextState<SimState>>,
              mut move_info: ResMut<MoveInfo>,
-             camera_info: Res<CamerInfo>| {
+             camera_info: Res<CamerInfo>,
+             n_state: Res<State<SimState>>| {
+                if n_state.get() != &SimState::Main {
+                    return;
+                }
                 state.set(SimState::Move);
                 *move_info = MoveInfo {
                     time: 0.0,
@@ -143,7 +147,12 @@ pub fn main_ui_setup(
             MainUi,
         ))
         .observe(
-            |_: On<Pointer<Click>>, mut state: ResMut<NextState<SimState>>| {
+            |_: On<Pointer<Click>>,
+             mut state: ResMut<NextState<SimState>>,
+             n_state: Res<State<SimState>>| {
+                if n_state.get() != &SimState::Main {
+                    return;
+                }
                 state.set(SimState::ReSpawnPlayer);
             },
         );
@@ -170,7 +179,11 @@ pub fn main_ui_setup(
             |_: On<Pointer<Click>>,
              mut state: ResMut<NextState<SimState>>,
              mut move_info: ResMut<MoveInfo>,
-             camera_info: Res<CamerInfo>| {
+             camera_info: Res<CamerInfo>,
+             n_state: Res<State<SimState>>| {
+                if n_state.get() != &SimState::Main {
+                    return;
+                }
                 state.set(SimState::Move);
                 *move_info = MoveInfo {
                     time: 0.0,

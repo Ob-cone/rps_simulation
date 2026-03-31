@@ -4,7 +4,7 @@ use bevy::{
     camera::visibility::{NoFrustumCulling, Visibility},
     color::{
         Color,
-        palettes::css::{BLACK, BLUE, RED, WHEAT, WHITE},
+        palettes::css::{BLACK, RED},
     },
     ecs::{
         component::Component,
@@ -139,7 +139,7 @@ pub fn set_credit(
     commands
         .spawn((
             Sprite {
-                color: WHEAT.into(),
+                color: BLACK.into(),
                 custom_size: Some(Vec2::new(ui_width * 0.8, height * scale * 0.8)),
                 ..Default::default()
             },
@@ -203,7 +203,7 @@ pub fn set_credit(
                     ));
                 })
                 .observe(|_: On<Pointer<Click>>| {
-                    let _ = open::that("https://github.com/Ob-cone/rps_simulation");
+                    let _ = open_link("https://github.com/Ob-cone/rps_simulation".to_string());
                 });
 
                 let title = (
@@ -266,7 +266,7 @@ pub fn set_credit(
                     ));
                 })
                 .observe(|_: On<Pointer<Click>>| {
-                    let _ = open::that("https://github.com/Ob-cone");
+                    let _ = open_link("https://github.com/Ob-cone".to_string());
                 });
 
                 p.spawn((
@@ -286,7 +286,7 @@ pub fn set_credit(
                     ));
                 })
                 .observe(|_: On<Pointer<Click>>| {
-                    let _ = open::that("https://github.com/Ob-cone");
+                    let _ = open_link("https://github.com/Ob-cone".to_string());
                 });
 
                 p.spawn((
@@ -306,7 +306,7 @@ pub fn set_credit(
                     ));
                 })
                 .observe(|_: On<Pointer<Click>>| {
-                    let _ = open::that("https://github.com/Ob-cone");
+                    let _ = open_link("https://github.com/Ob-cone".to_string());
                 });
 
                 p.spawn((
@@ -332,7 +332,7 @@ pub fn set_credit(
                     ));
                 })
                 .observe(|_: On<Pointer<Click>>| {
-                    let _ = open::that("https://github.com/qwerasd205/PixelCode");
+                    let _ = open_link("https://github.com/qwerasd205/PixelCode".to_string());
                 });
 
                 p.spawn((
@@ -372,7 +372,7 @@ pub fn set_credit(
                         let url_name = name.clone();
                         entity.observe(move |_: On<Pointer<Click>>| {
                             let url = format!("https://crates.io/crates/{}", url_name);
-                            let _ = open::that(url);
+                            let _ = open_link(url);
                         });
                     }
 
@@ -380,4 +380,17 @@ pub fn set_credit(
                 }
             });
         });
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn open_link(url: String) {
+    // PC 환경: open 라이브러리 사용
+    let _ = open::that(url);
+}
+
+#[cfg(target_arch = "wasm32")]
+fn open_link(url: String) {
+    // WASM 환경: web-sys 사용
+    let window = web_sys::window().unwrap();
+    let _ = window.open_with_url(&url);
 }
