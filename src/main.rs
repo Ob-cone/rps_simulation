@@ -1,7 +1,17 @@
+//#![windows_subsystem = "windows"]
+use crate::{
+    credit::credit_plugin, custom::custom_plugin, main_home::main_home_plugin,
+    move_camera::move_plugin, respawn::respawn_plugin, scroller::scroller_plugin,
+    simulation::sim_plugin,
+};
 use avian2d::{PhysicsPlugins, prelude::Gravity};
+use bevy::prelude::NonSend;
+
+use bevy::window::WindowResolution;
+use bevy::winit::WinitWindows;
 use bevy::{
     DefaultPlugins,
-    app::App,
+    app::{App, Startup},
     ecs::{
         component::Component,
         entity::Entity,
@@ -14,12 +24,6 @@ use bevy::{
     window::{Window, WindowPlugin},
 };
 use bevy_bc_ime_text_field::ImeTextFieldPlugin;
-
-use crate::{
-    credit::credit_plugin, custom::custom_plugin, main_home::main_home_plugin,
-    move_camera::move_plugin, respawn::respawn_plugin, scroller::scroller_plugin,
-    simulation::sim_plugin,
-};
 
 mod credit;
 mod custom;
@@ -36,6 +40,10 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
+                title: "rps_sim".into(),
+                resolution: WindowResolution::new(1280, 720),
+                fit_canvas_to_parent: true,
+                prevent_default_event_handling: false,
                 present_mode: bevy::window::PresentMode::AutoVsync,
                 ..Default::default()
             }),
@@ -55,12 +63,39 @@ fn main() {
             scroller_plugin,
             credit_plugin,
         ))
+        .add_systems(Startup, set_window_icon)
         .run();
 }
 
 fn despawn_screen<T: Component>(to_despawn: Query<Entity, With<T>>, mut commands: Commands) {
     for entity in &to_despawn {
         commands.entity(entity).despawn();
+    }
+}
+
+fn set_window_icon(_windows: Option<NonSend<WinitWindows>>) {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        use bevy::winit::WINIT_WINDOWS;
+
+        WINIT_WINDOWS.with_borrow_mut(|window| {
+            use winit::window::Icon;
+
+            let image = image::open("assets/rps_icon.png")
+                .expect("아이콘 파일 없음")
+                .into_rgba8();
+            let (width, height) = image.dimensions();
+            let rgba = image.into_raw();
+
+            let icon = Icon::from_rgba(rgba, width, height).unwrap();
+
+            if window.windows.is_empty() {
+                return;
+            }
+            for window in window.windows.values() {
+                window.set_window_icon(Some(icon.clone()));
+            }
+        });
     }
 }
 

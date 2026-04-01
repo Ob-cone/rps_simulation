@@ -80,6 +80,20 @@ pub fn main_ui_setup(
     ));
     let block_width = ui_width * 0.2;
     let block_height = 150.0;
+
+    commands.spawn((
+        Text2d::new("rps_sim"),
+        TextFont {
+            font: asset_server.load(FONTPATH),
+            font_size: 150.0,
+            ..Default::default()
+        },
+        TextColor(BLACK.into()),
+        Transform::from_xyz(width / 2.0 * scale, block_height * 2.5 + 60.0, 10.0),
+        MainUi,
+        NoFrustumCulling,
+    ));
+
     commands
         .spawn((
             Sprite {
@@ -234,7 +248,11 @@ pub fn main_ui_setup(
             |_: On<Pointer<Click>>,
              mut move_info: ResMut<MoveInfo>,
              mut state: ResMut<NextState<SimState>>,
-             camer_info: ResMut<'_, CamerInfo>| {
+             camer_info: ResMut<'_, CamerInfo>,
+             n_state: Res<State<SimState>>| {
+                if n_state.get() != &SimState::Main {
+                    return;
+                }
                 let ms = 2.0;
                 println!("B: {:?}", camer_info.x * (4.0 - ms));
                 move_info.time = 0.0;

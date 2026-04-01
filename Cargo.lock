@@ -2050,7 +2050,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "374b7c592d9c00c1f4972ea58390ac6b18cbb6ab79011f3bdc90a0b82ca06b77"
 dependencies = [
  "serde",
- "toml",
+ "toml 0.9.12+spec-1.1.0",
 ]
 
 [[package]]
@@ -5216,6 +5216,8 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "web-time",
+ "winit",
+ "winres",
 ]
 
 [[package]]
@@ -5775,6 +5777,15 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "toml"
+version = "0.5.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4f7f0dd8d50a853a531c426359045b1998f04219d88799810762cd4ad314234"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "toml"
 version = "0.9.12+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf92845e79fc2e2def6a5d828f0801e29a2f8acc037becc5ab08595c7d5e9863"
@@ -6290,6 +6301,7 @@ checksum = "374f6b70e8e0d6bf9461a32988fd553b59ff630964924dad6e4a4eb6bd538d17"
 dependencies = [
  "dlib",
  "log",
+ "once_cell",
  "pkg-config",
 ]
 
@@ -7018,6 +7030,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df79d97927682d2fd8adb29682d1140b343be4ac0f08fd68b7765d9c059d3945"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "winres"
+version = "0.1.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b68db261ef59e9e52806f688020631e987592bd83619edccda9c47d42cde4f6c"
+dependencies = [
+ "toml 0.5.11",
 ]
 
 [[package]]
