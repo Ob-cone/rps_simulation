@@ -747,7 +747,7 @@ pub fn spawn_type_children(
                 Pickable::default(),
             ))
             .with_child((
-                Text2d::new("⮎"),
+                Text2d::new("⥮"),
                 TextFont {
                     font: asset_server.load(FONTPATH),
                     font_size: 128.0,
@@ -797,7 +797,7 @@ pub fn spawn_type_children(
                 Pickable::default(),
             ))
             .with_child((
-                Text2d::new("↺"),
+                Text2d::new("⟲"),
                 TextFont {
                     font: asset_server.load(FONTPATH),
                     font_size: 128.0,
@@ -1396,6 +1396,88 @@ pub fn spawn_env_children(
                         s_button.1.translation.x = if sim_info.view_rank { -55.0 } else { -5.0 };
                     },
                 );
+            });
+
+            p.spawn((
+                Sprite {
+                    color: Color::srgba(0.0, 0.0, 0.0, 0.5),
+                    custom_size: Some(Vec2::new(width - 20.0, 180.0)),
+                    ..Default::default()
+                },
+                Anchor::TOP_LEFT,
+                Transform::from_xyz(0.0, -730.0, 0.1),
+            ))
+            .with_children(|p| {
+                p.spawn((
+                    Text2d::new("Speed"),
+                    TextFont {
+                        font: asset_server.load(FONTPATH),
+                        font_size: 75.0,
+                        ..Default::default()
+                    },
+                    Anchor::TOP_LEFT,
+                    Transform::from_xyz(10.0, 0.0, 0.1),
+                ));
+                p.spawn((
+                    Sprite {
+                        custom_size: Some(Vec2::new(width - 40.0, 70.0)),
+                        color: WHITE.into(),
+                        ..Default::default()
+                    },
+                    Transform::from_xyz(10.0, -100.0, 0.1),
+                    Anchor::TOP_LEFT,
+                    Pickable::default(),
+                    Visibility::default(),
+                ))
+                .with_children(|p| {
+                    let par = sim_info.speed.to_string();
+
+                    p.spawn((
+                        TextField::default(),
+                        TextFieldStyle {
+                            font: TextFont {
+                                font: asset_server.load(FONTPATH),
+                                font_size: 50.0,
+                                ..Default::default()
+                            },
+                            color: BLACK.into(),
+                            placeholder_color: GRAY.into(),
+                            ..Default::default()
+                        },
+                        TextFieldInfo {
+                            focus: false,
+                            max_length: Some(10),
+                            placeholder: Some(par),
+                            ..Default::default()
+                        },
+                        Text2d::default(),
+                        Transform::from_xyz(10.0, -1.0, 0.5),
+                        Visibility::default(),
+                        Anchor::TOP_LEFT,
+                    ))
+                    .observe(
+                        |trigger: On<EnterEvent>,
+                         mut q_field: Query<(&mut TextField, &mut TextFieldInfo)>,
+                         mut sim_info: ResMut<SimInfo>,
+                         state: Res<State<SimState>>| {
+                            println!("Enter: {:?}", trigger.text_field.text);
+                            if let Ok((mut text, mut info)) = q_field.get_mut(trigger.entity) {
+                                text.text.clear();
+                                info.focus = false;
+                                if state.get() != &SimState::Custom {
+                                    return;
+                                }
+                                if let Ok(parsed) = trigger.text_field.text.trim().parse::<f32>() {
+                                    sim_info.speed = parsed.max(0.001);
+                                } else {
+                                    sim_info.speed = 200.0;
+                                }
+
+                                info.placeholder = Some(sim_info.speed.to_string());
+                            }
+                        },
+                    );
+                });
             });
         });
     }

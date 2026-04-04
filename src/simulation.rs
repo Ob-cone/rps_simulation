@@ -59,6 +59,7 @@ pub struct RankUi(pub i32);
 #[derive(Debug, Resource)]
 pub struct SimInfo {
     pub seed: Option<u64>,
+    pub speed: f32,
     pub collider_size: f32,
     pub icon_size: f32,
     pub view_rank: bool,
@@ -77,6 +78,7 @@ pub fn sim_plugin(app: &mut App) {
         )
         .insert_resource(SimInfo {
             seed: None,
+            speed: 200.0,
             icon_size: 2.0,
             collider_size: 2.0,
             view_rank: false,
@@ -379,8 +381,8 @@ fn get_layer(layer_mask: LayerMask, len: i32) -> i32 {
     0
 }
 
-fn enforce_speed(mut query: Query<&mut LinearVelocity>) {
-    let target_speed = 200.0;
+fn enforce_speed(mut query: Query<&mut LinearVelocity>, sim_info: Res<SimInfo>) {
+    let target_speed = sim_info.speed;
     for mut velocity in query.iter_mut() {
         if velocity.length() > 0.0 {
             velocity.0 = velocity.normalize() * target_speed;

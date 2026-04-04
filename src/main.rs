@@ -1,4 +1,4 @@
-//#![windows_subsystem = "windows"]
+#![windows_subsystem = "windows"]
 use crate::{
     credit::credit_plugin, custom::custom_plugin, main_home::main_home_plugin,
     move_camera::move_plugin, respawn::respawn_plugin, scroller::scroller_plugin,
